@@ -1,0 +1,80 @@
+# 依赖
+node_modules
+.pnp
+.pnp.js
+
+# 编译输出
+dist
+dist-ssr
+*.local
+build
+
+# 日志
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# 测试覆盖报告
+coverage
+.nyc_output
+/cypress/videos/
+/cypress/screenshots/
+
+# 编辑器目录和文件
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+.idea
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+.project
+.classpath
+*.launch
+.settings/
+
+# 操作系统相关
+.DS_Store
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# 环境变量
+.env
+.env.local
+.env.*.local
+.env.development
+.env.test
+.env.production
+
+# Firebase
+.firebase/
+firebase-debug.log
+ui-debug.log
+.firebaserc
+
+# 构建缓存
+.cache
+.parcel-cache
+.nuxt
+.next
+.vuepress/dist
+.temp
+.cache
+.docusaurus
+
+# 其他
+*.tsbuildinfo
+.eslintcache
+.stylelintcache
+*.zip
+*.tar.gz
+*.tgz
+.vercel

@@ -1,0 +1,56 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --color-bg-primary: #ffffff;
+    --color-text-primary: #24292e;
+    --color-border: #e1e4e8;
+    --github-blue: #0366d6;
+    --github-gray: #6a737d;
+    --github-green: #28a745;
+  }
+
+  .dark {
+    --color-bg-primary: #0d1117;
+    --color-text-primary: #c9d1d9;
+    --color-border: #30363d;
+    --github-blue: #58a6ff;
+    --github-gray: #8b949e;
+    --github-green: #3fb950;
+  }
+
+  body {
+    @apply bg-[var(--color-bg-primary)] text-[var(--color-text-primary)];
+    font-family: var(--font-sans);
+    font-size: 14px;
+    line-height: 1.5;
+    min-height: 100vh;
+  }
+
+  pre,
+  code {
+    font-family: var(--font-monospace);
+    font-size: 13px;
+  }
+}
+
+#app {
+  width: 100%;
+  margin: 0 auto;
+  font-weight: normal;
+}
+
+a,
+.green {
+  text-decoration: none;
+  color: hsla(160, 100%, 37%, 1);
+  transition: 0.4s;
+}
+
+@media (hover: hover) {
+  a:hover {
+    background-color: hsla(160, 100%, 37%, 0.2);
+  }
+}
