@@ -6,7 +6,7 @@ import NightSky from "@/components/NightSky.vue";
 
 <template>
   <div
-    class="min-h-screen bg-[var(--color-bg-primary)] text-[var(--color-text-primary)] relative"
+    class="min-h-screen bg-[var(--color-bg-primary)] text-[var(--color-text-primary)] relative dark-gradient"
   >
     <NightSky />
     <div class="relative z-10">
@@ -70,6 +70,36 @@ import NightSky from "@/components/NightSky.vue";
   --github-red: #cf6679;
   --github-gray: #a0a0a0;
   --github-dark-gray: #e0e0e0;
+}
+
+/* 暗色模式渐变背景 */
+.dark .dark-gradient {
+  background-image: linear-gradient(
+    to bottom,
+    rgba(0, 0, 15, 0.4) 0%,
+    rgba(18, 18, 36, 0.2) 40%,
+    rgba(30, 30, 60, 0.1) 70%,
+    rgba(200, 200, 255, 0.12) 100%
+  );
+  background-attachment: fixed;
+  background-size: 100% 100vh;
+  position: relative;
+}
+
+.dark .dark-gradient::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: radial-gradient(
+    circle at center bottom,
+    rgba(180, 180, 255, 0.05) 0%,
+    rgba(30, 30, 60, 0) 60%
+  );
+  z-index: 0;
+  pointer-events: none;
 }
 
 /* 媒体查询根据系统偏好自动切换 */

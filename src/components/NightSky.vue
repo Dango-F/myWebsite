@@ -29,8 +29,8 @@ const starColors = [
 // 流星系统配置
 const meteors = ref([]);
 const METEOR_CONFIG = {
-  spawnInterval: 800, // 缩短生成间隔，使流星出现更频繁
-  maxMeteors: 15, // 保持当前最大流星数
+  spawnInterval: 700, // 缩短生成间隔，使流星出现更频繁
+  maxMeteors: 20, // 保持当前最大流星数
   minSpeed: 0.05, // 减慢最小速度
   maxSpeed: 0.09, // 减慢最大速度
   minLength: 200, // 增加最小长度
@@ -47,7 +47,7 @@ const METEOR_CONFIG = {
 const random = (min, max) => Math.random() * (max - min) + min;
 
 // 初始化星星
-const initStars = (count = 200) => {
+const initStars = (count = 800) => {
   stars.value = Array.from({ length: count }, () => {
     const colorIndex = Math.floor(random(0, starColors.length));
     const color = starColors[colorIndex];
