@@ -11,7 +11,7 @@ const profileStore = useProfileStore()
 const tagFilter = ref('')
 const languageFilter = ref('')
 const searchQuery = ref('')
-const githubUsername = ref('')
+const githubUsername = ref(profileStore.profile.github_username)
 const githubToken = ref('')
 const showTokenInput = ref(false)
 const sidebarStore = useSidebarStore()
@@ -39,8 +39,6 @@ onMounted(() => {
     if (savedToken) {
         githubToken.value = savedToken
     }
-    // 设置 GitHub 用户名
-    githubUsername.value = profileStore.profile.github_username
 })
 
 // 加载GitHub仓库

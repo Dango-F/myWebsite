@@ -2,7 +2,6 @@
 
 一个基于 Vue 3、Vite 和 Tailwind CSS 构建的现代化个人博客平台，采用 GitHub 风格设计。提供博客发布、项目展示、个人简历和待办事项管理等功能。支持亮色和暗色模式，响应式设计适配各种设备。
 
-![GitHub风格博客预览](./public/preview.png)
 
 ## ✨ 功能特性
 
@@ -116,16 +115,20 @@ my_blog/
 
 ### GitHub 集成
 
-要启用 GitHub 项目导入，您需要在 `ProjectsView.vue` 中配置您的 GitHub 用户名：
+系统会自动从您的个人资料中获取 GitHub 用户名：
+
+1. 在 `src/stores/profile.js` 中修改 `github_username` 配置：
 
 ```javascript
-// 修改为您的 GitHub 用户名
-const githubUsername = ref('your-github-username')
+// profile.js 文件中
+profile: {
+    // ...其他属性
+    github_username: 'your-github-username'  // 替换为您的 GitHub 用户名
+}
 ```
 
-## 📝 许可证
-
-[MIT](LICENSE)
+2. 系统会自动在首页和项目页使用此用户名获取仓库数据
+3. 在项目页面，您还可以手动输入其他 GitHub 用户名进行查询
 
 ## 🙏 贡献
 
