@@ -84,8 +84,21 @@ onMounted(async () => {
             </router-link>
           </div>
 
+          <!-- 错误提示 -->
+          <div v-if="projectStore.error"
+            class="bg-red-50 dark:bg-red-900/10 border border-red-200 dark:border-red-800 p-3 rounded-md mb-4">
+            <p class="text-red-600 dark:text-red-400 text-sm">{{ projectStore.error }}</p>
+            <div class="mt-2 flex items-center justify-between">
+              <p class="text-xs text-gray-500 dark:text-gray-400">需要 GitHub Token 来解决 API 限制问题</p>
+              <router-link to="/projects"
+                class="text-xs bg-github-blue text-white px-3 py-1 rounded-md hover:bg-blue-700">
+                配置 Token
+              </router-link>
+            </div>
+          </div>
+
           <!-- 加载状态 -->
-          <div v-if="isLoading" class="py-4 flex justify-center">
+          <div v-else-if="isLoading" class="py-4 flex justify-center">
             <div class="animate-spin h-6 w-6 border-4 border-github-blue border-t-transparent rounded-full"></div>
           </div>
 
