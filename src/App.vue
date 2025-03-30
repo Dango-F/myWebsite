@@ -79,7 +79,7 @@ import NightSky from "@/components/NightSky.vue";
     rgba(0, 0, 15, 0.4) 0%,
     rgba(18, 18, 36, 0.2) 40%,
     rgba(30, 30, 60, 0.1) 70%,
-    rgba(200, 200, 255, 0.12) 100%
+    rgba(200, 200, 255, 0.15) 100%
   );
   background-attachment: fixed;
   background-size: 100% 100vh;
