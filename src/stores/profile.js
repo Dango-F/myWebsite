@@ -4,7 +4,8 @@ import { ref } from 'vue'
 export const useProfileStore = defineStore('profile', () => {
     const profile = ref({
         name: 'YukiDango',
-        avatar: '/src/assets/images/avatar.jpg',
+        // avatar: '/src/assets/images/avatar.jpg',
+        avatar: 'https://avatars.githubusercontent.com/u/109727326?s=400&u=3a05d82d993d049bd7c03c5bdac0408eea8184f3&v=4',
         bio: '前端开发者 | AI 爱好者 | 开源贡献者',
         location: '安徽-宣城',
         email: '1847539781@qq.com',
@@ -14,7 +15,8 @@ export const useProfileStore = defineStore('profile', () => {
         website: 'https://zhangsan.dev',
         company: 'HFUT',
         position: 'HFUT-CS-2022',
-        skills: ['JavaScript', 'Vue', 'React', 'Node.js', 'TypeScript', 'CSS', 'HTML']
+        skills: ['JavaScript', 'Vue', 'React', 'Node.js', 'TypeScript', 'CSS', 'HTML'],
+        github_username: 'Dango-F'
     })
 
     const timeline = ref([

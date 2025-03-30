@@ -1,12 +1,15 @@
 <script setup>
 import { useBlogStore } from '@/stores/blog'
 import { useProjectStore } from '@/stores/project'
+import { useProfileStore } from '@/stores/profile'
 import HomeSidebar from '@/components/HomeSidebar.vue'
 import BlogCard from '@/components/BlogCard.vue'
 import RepoCard from '@/components/RepoCard.vue'
+import { onMounted } from 'vue'
 
 const blogStore = useBlogStore()
 const projectStore = useProjectStore()
+const profileStore = useProfileStore()
 
 // 获取最近的博客文章（最多3篇）
 const recentPosts = blogStore.posts.slice(0, 3)
@@ -16,6 +19,16 @@ const topProjects = projectStore.projects
   .slice()
   .sort((a, b) => b.stars - a.stars)
   .slice(0, 3)
+
+// 在组件挂载时自动获取 GitHub 仓库数据
+onMounted(async () => {
+  // 检查是否需要刷新数据（这里设置为1小时刷新一次）
+  const now = Date.now()
+  const oneHour = 60 * 60 * 1000
+  if (now - projectStore.lastFetchTime > oneHour) {
+    await projectStore.fetchGitHubRepos(profileStore.profile.github_username)
+  }
+})
 </script>
 
 <template>

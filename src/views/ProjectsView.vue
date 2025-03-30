@@ -39,14 +39,8 @@ onMounted(() => {
     if (savedToken) {
         githubToken.value = savedToken
     }
-})
-
-// 从GitHub用户名中提取用户名并检查是否需要加载仓库
-onMounted(() => {
-    if (profileStore.profile.github) {
-        const urlParts = profileStore.profile.github.split('/')
-        githubUsername.value = urlParts[urlParts.length - 1] || 'Dango-F'
-    }
+    // 设置 GitHub 用户名
+    githubUsername.value = profileStore.profile.github_username
 })
 
 // 加载GitHub仓库
