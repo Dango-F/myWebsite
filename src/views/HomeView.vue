@@ -5,28 +5,46 @@ import { useProfileStore } from '@/stores/profile'
 import HomeSidebar from '@/components/HomeSidebar.vue'
 import BlogCard from '@/components/BlogCard.vue'
 import RepoCard from '@/components/RepoCard.vue'
-import { onMounted } from 'vue'
+import { onMounted, computed, ref } from 'vue'
 
 const blogStore = useBlogStore()
 const projectStore = useProjectStore()
 const profileStore = useProfileStore()
 
+// 是否正在加载
+const isLoading = ref(false)
+
 // 获取最近的博客文章（最多3篇）
 const recentPosts = blogStore.posts.slice(0, 3)
 
-// 获取热门项目（最多3个）
-const topProjects = projectStore.projects
-  .slice()
-  .sort((a, b) => b.stars - a.stars)
-  .slice(0, 3)
+// 获取热门项目（最多3个）- 使用 computed 属性，这样在 projects 更新时会自动重新计算
+const topProjects = computed(() => {
+  return projectStore.projects
+    .slice()
+    .sort((a, b) => b.stars - a.stars)
+    .slice(0, 3)
+})
 
 // 在组件挂载时自动获取 GitHub 仓库数据
 onMounted(async () => {
-  // 检查是否需要刷新数据（这里设置为1小时刷新一次）
-  const now = Date.now()
-  const oneHour = 60 * 60 * 1000
-  if (now - projectStore.lastFetchTime > oneHour) {
-    await projectStore.fetchGitHubRepos(profileStore.profile.github_username)
+  try {
+    isLoading.value = true
+
+    // 检查是否需要获取数据
+    const now = Date.now()
+    const oneHour = 60 * 60 * 1000
+
+    if (projectStore.projects.length === 0 || now - projectStore.lastFetchTime > oneHour) {
+      // 获取本地存储的 token（如果有）
+      const token = localStorage.getItem('github_token') || ''
+
+      // 调用 API 获取数据
+      await projectStore.fetchGitHubRepos(profileStore.profile.github_username, token)
+    }
+  } catch (error) {
+    console.error('获取 GitHub 仓库失败:', error)
+  } finally {
+    isLoading.value = false
   }
 })
 </script>
@@ -66,8 +84,17 @@ onMounted(async () => {
             </router-link>
           </div>
 
-          <div class="space-y-4">
-            <RepoCard v-for="project in topProjects" :key="project.id" :project="project" />
+          <!-- 加载状态 -->
+          <div v-if="isLoading" class="py-4 flex justify-center">
+            <div class="animate-spin h-6 w-6 border-4 border-github-blue border-t-transparent rounded-full"></div>
+          </div>
+
+          <!-- 项目列表 -->
+          <div v-else class="space-y-4">
+            <div v-if="topProjects.length === 0" class="text-gray-500 py-4 text-center">
+              暂无项目数据
+            </div>
+            <RepoCard v-else v-for="project in topProjects" :key="project.id" :project="project" />
           </div>
         </section>
       </div>
