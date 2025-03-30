@@ -1,11 +1,13 @@
-# GitHub风格个人博客
+# GitHub 风格个人博客
 
 一个基于 Vue 3、Vite 和 Tailwind CSS 构建的现代化个人博客平台，采用 GitHub 风格设计。提供博客发布、项目展示、个人简历和待办事项管理等功能。支持亮色和暗色模式，响应式设计适配各种设备。
 
+![屏幕截图](./screenshot1.png)
+![屏幕截图](./screenshot2.png)
 
 ## ✨ 功能特性
 
-- 🌙 **亮色/暗色主题**：支持自动和手动切换主题模式
+- 🌙 **亮色/暗色主题**：支持自动和手动切换主题模式，夜间模式带有美丽的星空和流星效果
 - 📝 **Markdown 博客**：支持 Markdown 格式博客的上传、展示和编辑
 - 🌟 **项目展示**：可以从 GitHub 自动导入项目，或手动添加项目
 - 📊 **个人简历**：展示个人技能、工作经历和教育背景
@@ -25,6 +27,10 @@
 - **图标库**：Heroicons
 - **Markdown 渲染**：markdown-it + highlight.js
 - **HTTP 请求**：Axios
+
+## 🔍 预览
+
+[在线演示](https://your-demo-url.com)
 
 ## 📦 安装与使用
 
@@ -61,14 +67,13 @@ npm run preview
 
 ## 🚀 部署
 
-### Webify 部署
+### 部署到 Vercel/Netlify/Webify
 
-1. 在 Webify 创建一个新项目
-2. 选择 Vue.js 框架
-3. 连接您的 Git 仓库或上传构建文件
-4. 配置构建命令：`npm run build`
-5. 设置输出目录：`dist`
-6. 点击部署
+1. 使用 GitHub 账户登录 Vercel/Netlify/Webify
+2. 导入项目仓库
+3. 配置构建命令：`npm run build`
+4. 设置输出目录：`dist`
+5. 点击部署
 
 ### 数据持久化
 
@@ -86,6 +91,8 @@ my_blog/
 ├── src/
 │   ├── assets/      # 项目资源文件
 │   ├── components/  # Vue 组件
+│   │   ├── NightSky.vue  # 夜间模式星空效果
+│   │   └── ...
 │   ├── router/      # 路由配置
 │   ├── stores/      # Pinia 状态管理
 │   ├── utils/       # 工具函数
@@ -96,6 +103,7 @@ my_blog/
 ├── index.html       # HTML 入口
 ├── package.json     # 项目依赖
 ├── vite.config.js   # Vite 配置
+├── LICENSE          # MIT 许可证
 └── README.md        # 项目说明
 ```
 
@@ -111,6 +119,25 @@ my_blog/
   --color-bg-secondary: #f6f8fa;
   /* 其他主题变量... */
 }
+
+.dark {
+  --color-bg-primary: #121212;
+  --color-bg-secondary: #1e1e1e;
+  /* 暗色主题变量... */
+}
+```
+
+### 夜间模式星空效果
+
+可以在 `src/components/NightSky.vue` 中调整星空和流星效果参数：
+
+```javascript
+// 流星系统配置
+const METEOR_CONFIG = {
+  spawnInterval: 800, // 流星生成间隔(ms)
+  maxMeteors: 15, // 最大流星数量
+  // 其他参数...
+};
 ```
 
 ### GitHub 集成
@@ -122,14 +149,21 @@ my_blog/
 ```javascript
 // profile.js 文件中
 profile: {
-    // ...其他属性
-    github_username: 'your-github-username'  // 替换为您的 GitHub 用户名
+  // ...其他属性
+  github_username: "your-github-username"; // 替换为您的 GitHub 用户名
 }
 ```
 
-2. 系统会自动在首页和项目页使用此用户名获取仓库数据
-3. 在项目页面，您还可以手动输入其他 GitHub 用户名进行查询
+## 📱 适配设备
+
+- 💻 桌面设备
+- 📱 平板电脑
+- 📱 移动设备
 
 ## 🙏 贡献
 
 欢迎提交 Issues 和 Pull Requests 贡献代码！
+
+## 📄 许可证
+
+本项目采用 [MIT 许可证](LICENSE)。

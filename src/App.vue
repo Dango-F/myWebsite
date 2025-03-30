@@ -1,11 +1,13 @@
 <script setup>
-import { RouterView } from 'vue-router'
-import TheHeader from '@/components/TheHeader.vue'
-import NightSky from '@/components/NightSky.vue'
+import { RouterView } from "vue-router";
+import TheHeader from "@/components/TheHeader.vue";
+import NightSky from "@/components/NightSky.vue";
 </script>
 
 <template>
-  <div class="min-h-screen bg-[var(--color-bg-primary)] text-[var(--color-text-primary)] relative">
+  <div
+    class="min-h-screen bg-[var(--color-bg-primary)] text-[var(--color-text-primary)] relative"
+  >
     <NightSky />
     <div class="relative z-10">
       <TheHeader />
@@ -50,60 +52,60 @@ import NightSky from '@/components/NightSky.vue'
 /* 暗色模式 */
 .dark {
   --color-bg-primary: #121212;
-  --color-bg-secondary: #1E1E1E;
-  --color-bg-tertiary: #2D2D2D;
-  --color-text-primary: #E0E0E0;
-  --color-text-secondary: #A0A0A0;
+  --color-bg-secondary: #1e1e1e;
+  --color-bg-tertiary: #2d2d2d;
+  --color-text-primary: #e0e0e0;
+  --color-text-secondary: #a0a0a0;
   --color-border: #383838;
   --color-shadow: rgba(0, 0, 0, 0.3);
-  --color-link: #BB86FC;
+  --color-link: #bb86fc;
 
   /* 强调色 */
-  --color-accent-primary: #BB86FC;
-  --color-accent-secondary: #03DAC6;
+  --color-accent-primary: #bb86fc;
+  --color-accent-secondary: #03dac6;
 
   /* GitHub 相关颜色适配 */
-  --github-blue: #BB86FC;
-  --github-green: #03DAC6;
-  --github-red: #CF6679;
-  --github-gray: #A0A0A0;
-  --github-dark-gray: #E0E0E0;
+  --github-blue: #bb86fc;
+  --github-green: #03dac6;
+  --github-red: #cf6679;
+  --github-gray: #a0a0a0;
+  --github-dark-gray: #e0e0e0;
 }
 
 /* 媒体查询根据系统偏好自动切换 */
 @media (prefers-color-scheme: dark) {
   :root:not(.light) {
     --color-bg-primary: #121212;
-    --color-bg-secondary: #1E1E1E;
-    --color-bg-tertiary: #2D2D2D;
-    --color-text-primary: #E0E0E0;
-    --color-text-secondary: #A0A0A0;
+    --color-bg-secondary: #1e1e1e;
+    --color-bg-tertiary: #2d2d2d;
+    --color-text-primary: #e0e0e0;
+    --color-text-secondary: #a0a0a0;
     --color-border: #383838;
     --color-shadow: rgba(0, 0, 0, 0.3);
-    --color-link: #BB86FC;
+    --color-link: #bb86fc;
 
     /* 强调色 */
-    --color-accent-primary: #BB86FC;
-    --color-accent-secondary: #03DAC6;
+    --color-accent-primary: #bb86fc;
+    --color-accent-secondary: #03dac6;
 
     /* GitHub 相关颜色适配 */
-    --github-blue: #BB86FC;
-    --github-green: #03DAC6;
-    --github-red: #CF6679;
-    --github-gray: #A0A0A0;
-    --github-dark-gray: #E0E0E0;
+    --github-blue: #bb86fc;
+    --github-green: #03dac6;
+    --github-red: #cf6679;
+    --github-gray: #a0a0a0;
+    --github-dark-gray: #e0e0e0;
   }
 }
 
 html,
 body {
   transition: background-color var(--transition-time) ease,
-    color var(--transition-time) ease,
-    border-color var(--transition-time) ease;
+    color var(--transition-time) ease, border-color var(--transition-time) ease;
 }
 
 body {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji';
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial,
+    sans-serif, "Apple Color Emoji", "Segoe UI Emoji";
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -140,8 +142,7 @@ a:hover {
 
 button {
   transition: background-color var(--transition-time) ease,
-    color var(--transition-time) ease,
-    border-color var(--transition-time) ease,
+    color var(--transition-time) ease, border-color var(--transition-time) ease,
     box-shadow var(--transition-time) ease;
 }
 
@@ -179,8 +180,7 @@ button {
   box-shadow: var(--card-shadow);
   padding: 16px;
   transition: border-color var(--transition-time),
-    box-shadow var(--transition-time),
-    background-color var(--transition-time);
+    box-shadow var(--transition-time), background-color var(--transition-time);
 }
 
 .github-card:hover {
@@ -224,7 +224,8 @@ input[type="button"]:not([disabled]):hover,
 input[type="submit"]:not([disabled]):hover {
   filter: brightness(1.1);
   transform: translateY(-1px);
-  transition: filter var(--transition-time) ease, transform var(--transition-time) ease;
+  transition: filter var(--transition-time) ease,
+    transform var(--transition-time) ease;
 }
 
 button:not([disabled]):active,
