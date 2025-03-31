@@ -28,10 +28,6 @@
 - **Markdown 渲染**：markdown-it + highlight.js
 - **HTTP 请求**：Axios
 
-## 🔍 预览
-
-[在线演示](https://your-demo-url.com)
-
 ## 📦 安装与使用
 
 ### 环境要求
