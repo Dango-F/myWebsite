@@ -10,6 +10,8 @@ const categoryRoutes = require("./routes/categories");
 const tagRoutes = require("./routes/tags");
 const authRoutes = require("./routes/auth");
 const adminRoutes = require("./routes/admin");
+const todoRoutes = require("./routes/todos");
+const configRoutes = require("./routes/config");
 
 // 加载环境变量
 dotenv.config();
@@ -31,6 +33,8 @@ app.use("/api/categories", categoryRoutes);
 app.use("/api/tags", tagRoutes);
 app.use("/api/auth", authRoutes);
 app.use("/api/admin", adminRoutes);
+app.use("/api/todos", todoRoutes);
+app.use("/api/config", configRoutes);
 
 // 连接到数据库
 mongoose

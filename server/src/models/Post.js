@@ -41,6 +41,14 @@ const PostSchema = new mongoose.Schema(
         ref: "Tag",
       },
     ],
+    file_name: {
+      type: String,
+      // 存储当前文件名（可能包含文章ID前缀）
+    },
+    original_file_name: {
+      type: String,
+      // 存储原始上传文件名，不含路径
+    },
     createdAt: {
       type: Date,
       default: Date.now,

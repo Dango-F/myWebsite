@@ -5,6 +5,7 @@ import { useProfileStore } from '@/stores/profile'
 import ProfileSidebar from '@/components/ProfileSidebar.vue'
 import RepoCard from '@/components/RepoCard.vue'
 import { useSidebarStore } from '@/stores/sidebar'
+import axios from 'axios'
 
 const projectStore = useProjectStore()
 const profileStore = useProfileStore()
@@ -14,8 +15,12 @@ const searchQuery = ref('')
 const githubUsername = ref(profileStore.profile.github_username)
 const githubToken = ref('')
 const showTokenInput = ref(false)
+const hasConfiguredToken = ref(false)
+const isEditingToken = ref(false)
 const sidebarStore = useSidebarStore()
 const isCollapsed = computed(() => sidebarStore.isCollapsed)
+const isLoadingToken = ref(false)
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
 
 // 计算最后更新时间的友好显示
 const lastUpdateTime = computed(() => {
@@ -33,26 +38,68 @@ const lastUpdateTime = computed(() => {
     return lastFetch.toLocaleString()
 })
 
-// 从本地存储加载Token
-onMounted(() => {
-    const savedToken = localStorage.getItem('github_token')
-    if (savedToken) {
-        githubToken.value = savedToken
-    }
-})
+// 从服务器加载GitHub Token
+const loadGitHubTokenFromServer = async () => {
+    try {
+        isLoadingToken.value = true;
+        const response = await axios.get(`${API_URL}/config`);
 
-// 加载GitHub仓库
-const loadGitHubRepos = async () => {
-    if (githubUsername.value) {
-        // 如果提供了令牌，保存它
-        if (githubToken.value) {
-            localStorage.setItem('github_token', githubToken.value)
+        if (response.data.success && response.data.data.github_token) {
+            githubToken.value = response.data.data.github_token;
+            hasConfiguredToken.value = true;
+            isEditingToken.value = false;
+            // 立即加载GitHub仓库
+            await loadGitHubRepos();
         }
-
-        // 调用API时传入令牌
-        await projectStore.fetchGitHubRepos(githubUsername.value, githubToken.value)
+    } catch (error) {
+        console.error('加载GitHub Token失败:', error);
+        hasConfiguredToken.value = false;
+    } finally {
+        isLoadingToken.value = false;
     }
-}
+};
+
+// 将GitHub Token保存到服务器
+const saveGitHubTokenToServer = async (token) => {
+    try {
+        await axios.post(`${API_URL}/config/github-token`, { token });
+        hasConfiguredToken.value = true;
+        isEditingToken.value = false;
+        // 保存成功后立即刷新
+        await loadGitHubRepos();
+    } catch (error) {
+        console.error('保存GitHub Token失败:', error);
+    }
+};
+
+// 修改加载GitHub仓库函数
+const loadGitHubRepos = async () => {
+    if (githubUsername.value && githubToken.value) {
+        // 调用API时传入令牌
+        await projectStore.fetchGitHubRepos(githubUsername.value, githubToken.value);
+    }
+};
+
+// 应用GitHub Token
+const applyGitHubToken = async () => {
+    if (githubToken.value) {
+        // 只保存到服务器，不保存到localStorage
+        await saveGitHubTokenToServer(githubToken.value);
+        showTokenInput.value = false;
+    }
+};
+
+// 开始编辑新令牌
+const startEditToken = () => {
+    isEditingToken.value = true;
+    githubToken.value = '';
+};
+
+// 取消编辑
+const cancelEditToken = () => {
+    isEditingToken.value = false;
+    githubToken.value = '';
+};
 
 // 清除缓存并重新加载
 const clearCacheAndReload = async () => {
@@ -62,7 +109,12 @@ const clearCacheAndReload = async () => {
 
 // 切换令牌输入框的显示/隐藏
 const toggleTokenInput = () => {
-    showTokenInput.value = !showTokenInput.value
+    showTokenInput.value = !showTokenInput.value;
+    isEditingToken.value = false;
+    // 如果隐藏输入框，重新从服务器加载Token
+    if (!showTokenInput.value) {
+        loadGitHubTokenFromServer();
+    }
 }
 
 const filteredProjects = computed(() => {
@@ -90,6 +142,12 @@ const filteredProjects = computed(() => {
     // 按星标降序排序
     return result.slice().sort((a, b) => b.stars - a.stars)
 })
+
+// 修改onMounted钩子
+onMounted(async () => {
+    // 先尝试从服务器加载令牌
+    await loadGitHubTokenFromServer();
+});
 </script>
 
 <template>
@@ -113,9 +171,9 @@ const filteredProjects = computed(() => {
 
                         <button @click="toggleTokenInput" type="button"
                             class="px-2 py-2 bg-[var(--color-bg-secondary)] text-[var(--color-text-primary)] rounded-md border border-[var(--color-border)] hover:bg-gray-200 dark:hover:bg-gray-800"
-                            title="GitHub访问令牌">
+                            :title="hasConfiguredToken ? 'GitHub访问令牌已配置（点击修改）' : 'GitHub访问令牌（未配置）'">
                             <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24"
-                                stroke="currentColor">
+                                stroke="currentColor" :class="{ 'text-green-500': hasConfiguredToken }">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                     d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
                             </svg>
@@ -158,18 +216,51 @@ const filteredProjects = computed(() => {
                         <label for="github-token" class="text-sm font-medium">
                             GitHub访问令牌 <span class="text-xs text-gray-500">(解决API限制问题)</span>
                         </label>
-                        <div class="flex gap-2">
-                            <input id="github-token" v-model="githubToken" type="password" placeholder="输入GitHub个人访问令牌"
-                                class="flex-1 p-2 border border-[var(--color-border)] rounded-md bg-[var(--color-bg-primary)]" />
-                            <button @click="loadGitHubRepos"
-                                class="px-3 py-2 bg-github-blue text-white rounded-md hover:bg-blue-700">
-                                应用
-                            </button>
+
+                        <!-- 已配置令牌状态 -->
+                        <div v-if="hasConfiguredToken && !isEditingToken" class="flex flex-col space-y-2">
+                            <div class="flex justify-between items-center">
+                                <div class="flex items-center">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-green-500 mr-2"
+                                        viewBox="0 0 20 20" fill="currentColor">
+                                        <path fill-rule="evenodd"
+                                            d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                                            clip-rule="evenodd" />
+                                    </svg>
+                                    <span class="text-green-600 font-medium">GitHub令牌已配置</span>
+                                </div>
+                                <div class="flex gap-2">
+                                    <button @click="startEditToken"
+                                        class="px-3 py-2 text-sm bg-blue-100 text-blue-700 dark:bg-blue-800 dark:text-blue-300 rounded-md hover:bg-blue-200 dark:hover:bg-blue-700">
+                                        更新令牌
+                                    </button>
+                                </div>
+                            </div>
+                            <p class="text-xs text-gray-500">
+                                令牌已安全地存储在服务器中。出于安全考虑，不会显示现有令牌的值。如需更改，请点击"更新令牌"按钮。
+                            </p>
                         </div>
-                        <p class="text-xs text-gray-500">
-                            如果遇到API限制错误，请<a href="https://github.com/settings/tokens" target="_blank"
-                                class="text-github-blue hover:underline">创建个人访问令牌</a>（无需勾选任何权限）。令牌将存储在本地浏览器中。
-                        </p>
+
+                        <!-- 令牌输入表单 -->
+                        <div v-else class="flex flex-col space-y-2">
+                            <div class="flex gap-2">
+                                <input id="github-token" v-model="githubToken" type="password"
+                                    placeholder="输入GitHub个人访问令牌"
+                                    class="flex-1 p-2 border border-[var(--color-border)] rounded-md bg-[var(--color-bg-primary)]" />
+                                <button @click="applyGitHubToken"
+                                    class="px-3 py-2 bg-github-blue text-white rounded-md hover:bg-blue-700">
+                                    应用
+                                </button>
+                                <button v-if="isEditingToken" @click="cancelEditToken"
+                                    class="px-3 py-2 text-sm bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-200 rounded-md hover:bg-gray-200 dark:hover:bg-gray-600">
+                                    取消
+                                </button>
+                            </div>
+                            <p class="text-xs text-gray-500">
+                                如果遇到API限制错误，请<a href="https://github.com/settings/tokens" target="_blank"
+                                    class="text-github-blue hover:underline">创建个人访问令牌</a>（无需勾选任何权限）。令牌将安全存储在服务器中。
+                            </p>
+                        </div>
                     </div>
                 </div>
 

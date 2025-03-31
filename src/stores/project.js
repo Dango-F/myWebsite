@@ -147,6 +147,18 @@ export const useProjectStore = defineStore('project', () => {
         lastFetchTime.value = 0
     }
 
+    // 检查是否需要刷新项目数据
+    const shouldRefresh = () => {
+        const now = Date.now();
+        const oneHour = 60 * 60 * 1000; // 1小时
+
+        // 如果没有数据或者上次加载时间超过1小时，需要刷新
+        return (
+            projects.value.length === 0 ||
+            now - lastFetchTime.value > oneHour
+        );
+    }
+
     return {
         projects,
         tags,
@@ -157,6 +169,7 @@ export const useProjectStore = defineStore('project', () => {
         getProjectsByTag,
         getProjectsByLanguage,
         fetchGitHubRepos,
-        clearCachedProjects
+        clearCachedProjects,
+        shouldRefresh
     }
 }) 

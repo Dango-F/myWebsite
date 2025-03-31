@@ -1,6 +1,7 @@
 import { createRouter, createWebHistory } from "vue-router";
 import HomeView from "../views/HomeView.vue";
 import { useBlogStore } from "@/stores/blog";
+import { useTodoStore } from "@/stores/todo";
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -75,6 +76,26 @@ router.beforeEach(async (to, from, next) => {
       console.error("刷新博客数据失败:", error);
     }
   }
+
+  // 如果是待办相关页面，刷新待办数据
+  if (to.path.startsWith("/todo") || to.path === "/admin" && to.query.tab === "todos") {
+    try {
+      const todoStore = useTodoStore();
+      // 如果不是从其他待办页面过来，或者明确要求刷新
+      if ((!from.path.startsWith("/todo") && !(from.path === "/admin" && from.query.tab === "todos"))
+        || to.query.refresh === "true") {
+        console.log("进入待办页面，按需刷新数据");
+        // 使用异步方式刷新数据，但不阻塞路由导航
+        setTimeout(() => {
+          // 使用智能刷新，只在必要时更新数据
+          todoStore.smartRefresh();
+        }, 0);
+      }
+    } catch (error) {
+      console.error("刷新待办数据失败:", error);
+    }
+  }
+
   next();
 });
 

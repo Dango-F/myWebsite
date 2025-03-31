@@ -6,6 +6,7 @@ const path = require("path");
 const fs = require("fs");
 const markdown = require("markdown-it")();
 const multer = require("multer");
+const slugify = require("slugify");
 
 // 配置文件上传
 const storage = multer.diskStorage({
@@ -385,11 +386,87 @@ exports.deletePost = async (req, res, next) => {
       });
     }
 
+    // 查找并删除与此博客关联的文件
+    const uploadsDir = path.join(__dirname, "../../uploads");
+    let fileDeleted = false; // 跟踪是否删除了文件
+
+    // 尝试遍历markdown目录寻找特定文章的文件
+    const markdownDir = path.join(uploadsDir, "markdown");
+    if (fs.existsSync(markdownDir)) {
+      const files = fs.readdirSync(markdownDir);
+
+      // 为文章生成唯一标识
+      const postSlug = slugify(post.title, { lower: true });
+      // 尝试获取文章文件名，通常上传时会保留
+      const originalFileName = post.file_name || "";
+
+      for (const file of files) {
+        const filePath = path.join(markdownDir, file);
+
+        try {
+          // 读取文件内容
+          const fileContent = fs.readFileSync(filePath, "utf8");
+
+          // 文件匹配条件：
+          // 1. 比较文件ID - 最准确的方式（如果文件名包含MongoDB ID）
+          const fileContainsId = file.includes(post._id.toString());
+
+          // 2. 比较原始文件名 - 如果保存了原始文件名
+          const fileMatchesOriginalName = originalFileName && file === originalFileName;
+
+          // 3. 比较标题和内容 - 作为后备方案
+          const fileMatchesTitle = file.toLowerCase().includes(postSlug);
+          const contentSample = post.content?.substring(0, 100) || "";
+          const fileMatchesContent = contentSample && fileContent.includes(contentSample);
+
+          // 只有在以下情况才删除文件:
+          // - 文件名包含文章ID（最精确的匹配）
+          // - 文件名与原始上传文件名匹配
+          // - 在没有更好方法时：文件名包含标题slug且内容前100个字符匹配
+          if (fileContainsId || fileMatchesOriginalName || (fileMatchesTitle && fileMatchesContent)) {
+            fs.unlinkSync(filePath);
+            console.log(`已删除文件: ${filePath}`);
+            fileDeleted = true;
+            break; // 找到并删除了对应文件，不再继续查找
+          }
+        } catch (error) {
+          console.error(`处理文件 ${filePath} 时出错:`, error);
+          // 继续处理其他文件，不中断流程
+        }
+      }
+    }
+
+    // 删除与该文章相关的图片文件
+    const imagesDir = path.join(uploadsDir, "images");
+    if (fs.existsSync(imagesDir) && post.slug) {
+      const files = fs.readdirSync(imagesDir);
+
+      for (const file of files) {
+        // 图片匹配条件更精确：必须包含文章ID或特定slug
+        const fileContainsId = file.includes(post._id.toString());
+        const fileMatchesSlug = post.slug && file.includes(post.slug);
+
+        if (fileContainsId || fileMatchesSlug) {
+          const filePath = path.join(imagesDir, file);
+          try {
+            fs.unlinkSync(filePath);
+            console.log(`已删除图片: ${filePath}`);
+          } catch (error) {
+            console.error(`删除图片 ${filePath} 时出错:`, error);
+          }
+        }
+      }
+    }
+
+    // 删除数据库中的记录
     await post.deleteOne();
 
     res.status(200).json({
       success: true,
       data: {},
+      message: fileDeleted
+        ? "文章及其相关文件已成功删除"
+        : "文章已从数据库中删除，但未找到关联文件"
     });
   } catch (err) {
     next(err);

@@ -61,9 +61,7 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div
-    class="min-h-screen bg-[var(--color-bg-primary)] text-[var(--color-text-primary)] relative dark-gradient"
-  >
+  <div class="min-h-screen bg-[var(--color-bg-primary)] text-[var(--color-text-primary)] relative dark-gradient">
     <NightSky />
     <div class="relative z-10">
       <TheHeader />
@@ -130,13 +128,11 @@ onUnmounted(() => {
 
 /* 暗色模式渐变背景 */
 .dark .dark-gradient {
-  background-image: linear-gradient(
-    to bottom,
-    rgba(0, 0, 15, 0.4) 0%,
-    rgba(18, 18, 36, 0.2) 40%,
-    rgba(30, 30, 60, 0.1) 70%,
-    rgba(200, 200, 255, 0.15) 100%
-  );
+  background-image: linear-gradient(to bottom,
+      rgba(0, 0, 15, 0.4) 0%,
+      rgba(18, 18, 36, 0.2) 40%,
+      rgba(30, 30, 60, 0.1) 70%,
+      rgba(200, 200, 255, 0.15) 100%);
   background-attachment: fixed;
   background-size: 100% 100vh;
   position: relative;
@@ -149,11 +145,9 @@ onUnmounted(() => {
   left: 0;
   right: 0;
   bottom: 0;
-  background: radial-gradient(
-    circle at center bottom,
-    rgba(180, 180, 255, 0.05) 0%,
-    rgba(30, 30, 60, 0) 60%
-  );
+  background: radial-gradient(circle at center bottom,
+      rgba(180, 180, 255, 0.05) 0%,
+      rgba(30, 30, 60, 0) 60%);
   z-index: 0;
   pointer-events: none;
 }

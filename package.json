@@ -21,6 +21,7 @@
     "markdown-it": "^14.0.0",
     "mongoose": "^8.13.1",
     "pinia": "^2.1.7",
+    "slugify": "^1.6.6",
     "vue": "^3.4.21",
     "vue-router": "^4.3.0"
   },

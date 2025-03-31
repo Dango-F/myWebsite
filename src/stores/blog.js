@@ -12,6 +12,7 @@ export const useBlogStore = defineStore("blog", () => {
   const isLoading = ref(false);
   const error = ref(null);
   const lastRefreshTime = ref(Date.now());
+  const lastUpdated = ref(new Date());
 
   // 监听其他标签页的更新通知
   const setupUpdateListener = () => {
@@ -33,13 +34,21 @@ export const useBlogStore = defineStore("blog", () => {
   // 标记后台更新，通知其他标签页
   const markUpdate = () => {
     const now = Date.now();
-    // 先保存当前值
-    const oldValue = localStorage.getItem(LAST_UPDATE_KEY);
+    // 获取当前值并比较，只有在必要时才更新
+    const currentValue = localStorage.getItem(LAST_UPDATE_KEY);
+    const currentTime = currentValue ? parseInt(currentValue) : 0;
+
+    // 如果距离上次更新不足1秒，跳过更新通知
+    // 这可以防止在短时间内多次触发不必要的更新
+    if (now - currentTime < 1000) {
+      console.log("短时间内已通知更新，跳过重复通知");
+      lastRefreshTime.value = now;
+      return;
+    }
+
     // 设置新值
     localStorage.setItem(LAST_UPDATE_KEY, now.toString());
     lastRefreshTime.value = now;
-
-    // 手动触发当前页面的刷新 - localStorage事件只在其他页面触发
     console.log("已通知其他标签页数据已更新");
   };
 
@@ -64,12 +73,27 @@ export const useBlogStore = defineStore("blog", () => {
   };
 
   // 保存到本地存储
-  const saveToLocalStorage = (data) => {
+  const saveToLocalStorage = (data, shouldNotify = true) => {
     try {
-      localStorage.setItem("blog_posts", JSON.stringify(data));
+      // 比较当前数据和要保存的数据
+      const currentData = localStorage.getItem("blog_posts");
+      const newDataString = JSON.stringify(data);
+
+      // 如果数据没有变化，不进行存储操作
+      if (currentData === newDataString) {
+        console.log("数据未变化，跳过本地存储更新");
+        return;
+      }
+
+      localStorage.setItem("blog_posts", newDataString);
       localStorage.setItem("blog_posts_time", Date.now().toString());
-      // 同时更新最后更新时间，通知其他标签页
-      markUpdate();
+
+      // 只有在数据确实发生变化且需要通知时才标记更新
+      if (shouldNotify) {
+        markUpdate();
+      } else {
+        console.log("静默更新本地存储，不通知其他标签页");
+      }
     } catch (err) {
       console.error("保存到本地存储失败:", err);
     }
@@ -77,27 +101,50 @@ export const useBlogStore = defineStore("blog", () => {
 
   // 智能刷新，只在必要时更新数据
   const smartRefresh = async () => {
-    // 如果上次刷新时间在3分钟内，且已有数据，直接使用缓存
+    // 如果页面初次加载或posts为空，则需要刷新
+    if (posts.value.length === 0) {
+      console.log("无数据，执行初始化加载");
+      return await fetchPosts(false); // 不强制刷新，允许使用本地缓存
+    }
+
+    // 检查上次刷新时间
     const now = Date.now();
     const timeSinceLastRefresh = now - lastRefreshTime.value;
-    if (timeSinceLastRefresh < 3 * 60 * 1000 && posts.value.length > 0) {
-      console.log("使用现有数据，跳过刷新");
+
+    // 如果已有数据且刷新间隔较短，直接使用现有数据
+    if (timeSinceLastRefresh < 5 * 60 * 1000) { // 延长到5分钟
+      console.log("近期已刷新，使用现有数据");
       return posts.value;
     }
 
-    // 超过3分钟或无数据，执行刷新
-    console.log("缓存过期或无数据，执行刷新");
-    return await fetchPosts(true);
+    // 检查是否有其他页面已经刷新过数据
+    const lastUpdateFromStorage = localStorage.getItem(LAST_UPDATE_KEY);
+    if (lastUpdateFromStorage) {
+      const lastUpdateTime = parseInt(lastUpdateFromStorage);
+
+      // 如果其他页面在1分钟内已经刷新过，则无需再次刷新
+      if (now - lastUpdateTime < 60 * 1000) {
+        console.log("其他页面近期已刷新数据，跳过API请求");
+        // 更新本地刷新时间，但不触发API请求
+        lastRefreshTime.value = now;
+        return posts.value;
+      }
+    }
+
+    // 超过时间阈值，执行普通刷新（不强制）
+    console.log("缓存过期，执行普通刷新");
+    return await fetchPosts(false);
   };
 
   // 从服务器获取博客文章
   const fetchPosts = async (forceRefresh = false) => {
     try {
-      // 如果上次刷新时间在3分钟内，且不是强制刷新，则使用当前数据
+      // 如果上次刷新时间在5分钟内，且不是强制刷新，则使用当前数据
+      // 延长缓存时间，减少API请求频率
       const timeSinceLastRefresh = Date.now() - lastRefreshTime.value;
       if (
         !forceRefresh &&
-        timeSinceLastRefresh < 3 * 60 * 1000 &&
+        timeSinceLastRefresh < 5 * 60 * 1000 &&
         posts.value.length > 0
       ) {
         console.log("使用当前数据，不进行API请求");
@@ -113,14 +160,44 @@ export const useBlogStore = defineStore("blog", () => {
         posts.value = localPosts;
       }
 
-      // 然后从服务器获取最新数据，只获取已发布的文章
-      console.log("从服务器获取博客数据...");
-      const response = await axios.get(`${API_URL}/posts?status=published`);
-      posts.value = response.data.data;
-      lastRefreshTime.value = Date.now();
+      // 限制API请求频率
+      let shouldFetchFromServer = forceRefresh;
 
-      // 缓存到本地存储
-      saveToLocalStorage(posts.value);
+      // 未强制刷新时，检查上次服务器请求时间
+      if (!shouldFetchFromServer) {
+        const lastApiCallTime = localStorage.getItem("blog_last_api_call");
+        const minApiCallInterval = 30 * 1000; // 至少30秒间隔
+
+        if (!lastApiCallTime ||
+          Date.now() - parseInt(lastApiCallTime) > minApiCallInterval) {
+          shouldFetchFromServer = true;
+        } else {
+          console.log("API请求过于频繁，使用本地数据");
+        }
+      }
+
+      // 从服务器获取最新数据，只获取已发布的文章
+      if (shouldFetchFromServer) {
+        console.log("从服务器获取博客数据...");
+        const response = await axios.get(`${API_URL}/posts?status=published`);
+
+        // 记录API调用时间
+        localStorage.setItem("blog_last_api_call", Date.now().toString());
+
+        // 比较数据是否有变化
+        const serverPostsJson = JSON.stringify(response.data.data);
+        const currentPostsJson = JSON.stringify(posts.value);
+
+        if (serverPostsJson !== currentPostsJson) {
+          posts.value = response.data.data;
+          // 缓存到本地存储 (saveToLocalStorage已优化，只有数据变化时才会通知)
+          saveToLocalStorage(posts.value, true);
+        } else {
+          console.log("服务器数据无变化，跳过更新");
+          // 即使数据无变化，也更新刷新时间
+          lastRefreshTime.value = Date.now();
+        }
+      }
 
       return posts.value;
     } catch (err) {
@@ -138,22 +215,29 @@ export const useBlogStore = defineStore("blog", () => {
     }
   };
 
-  // 清除缓存并强制刷新
+  // 刷新博客数据
   const refreshData = async () => {
     try {
-      console.log("强制刷新博客数据");
-      // 清除本地存储
-      localStorage.removeItem("blog_posts");
-      localStorage.removeItem("blog_posts_time");
+      isLoading.value = true;
+      error.value = null;
 
-      // 标记更新，通知其他标签页
-      markUpdate();
+      // 从API加载所有文章
+      const response = await axios.get(`${API_URL}/posts`);
+      posts.value = response.data.data;
 
-      // 强制从服务器获取最新数据
-      return await fetchPosts(true);
+      // 更新本地存储并明确指定通知其他标签页
+      saveToLocalStorage(posts.value, true);
+
+      // 标记最后更新时间
+      lastUpdated.value = new Date();
+
+      return posts.value;
     } catch (err) {
-      error.value = err.message || "刷新博客数据失败";
-      console.error("刷新博客数据失败:", err);
+      error.value = err.message || "加载博客文章失败";
+      console.error("加载博客文章失败:", err);
+      throw err;
+    } finally {
+      isLoading.value = false;
     }
   };
 
@@ -193,8 +277,8 @@ export const useBlogStore = defineStore("blog", () => {
         posts.value.push(post);
       }
 
-      // 更新本地存储
-      saveToLocalStorage(posts.value);
+      // 更新本地存储但不通知其他标签页（避免弹出更新提示）
+      saveToLocalStorage(posts.value, false);
 
       return post;
     } catch (err) {
@@ -251,9 +335,9 @@ export const useBlogStore = defineStore("blog", () => {
       return post;
     }
 
-    // 如果本地没有，从服务器获取
+    // 如果本地没有，从服务器获取 (设置为不通知，避免仅读取单篇文章时触发更新提示)
     console.log("本地没有文章，从服务器获取");
-    return fetchPost(id);
+    return fetchPost(id, false);
   };
 
   // 获取博客文章通过分类
@@ -315,8 +399,8 @@ export const useBlogStore = defineStore("blog", () => {
       // 更新本地状态
       posts.value.push(newPost);
 
-      // 更新本地缓存
-      localStorage.setItem("blog_posts", JSON.stringify(posts.value));
+      // 更新本地缓存并通知（这是主动上传，应该通知）
+      saveToLocalStorage(posts.value, true);
 
       return newPost;
     } catch (err) {
@@ -361,7 +445,7 @@ export const useBlogStore = defineStore("blog", () => {
               posts.value.push(newPost);
 
               // 更新本地缓存
-              localStorage.setItem("blog_posts", JSON.stringify(posts.value));
+              saveToLocalStorage(posts.value, true);
 
               resolve(newPost);
             } catch (err) {
@@ -380,8 +464,40 @@ export const useBlogStore = defineStore("blog", () => {
     }
   };
 
-  // 初始加载数据
-  fetchPosts();
+  // 初始加载数据时添加随机延迟，避免多个标签页同时请求
+  const initialLoadWithDebounce = () => {
+    // 随机延迟0-1000毫秒，减少多个标签页同时请求的概率
+    const delay = Math.floor(Math.random() * 1000);
+
+    // 检查是否其他页面正在加载
+    const loadingFlag = localStorage.getItem("blog_loading");
+    const now = Date.now();
+
+    if (loadingFlag) {
+      const loadStartTime = parseInt(loadingFlag);
+      // 如果有其他页面在2秒内开始了加载，则等待更长时间
+      if (now - loadStartTime < 2000) {
+        console.log("检测到其他页面正在加载，增加等待时间...");
+        setTimeout(() => {
+          // 尝试智能刷新，可能会重用其他页面已加载的数据
+          smartRefresh();
+        }, delay + 1500);
+        return;
+      }
+    }
+
+    // 标记当前页面正在加载
+    localStorage.setItem("blog_loading", now.toString());
+
+    setTimeout(() => {
+      fetchPosts();
+      // 加载完成后清除标记
+      localStorage.removeItem("blog_loading");
+    }, delay);
+  };
+
+  // 初始加载使用带防抖的方法
+  initialLoadWithDebounce();
 
   return {
     posts,
@@ -400,3 +516,4 @@ export const useBlogStore = defineStore("blog", () => {
     markUpdate,
   };
 });
+

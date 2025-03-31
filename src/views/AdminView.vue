@@ -2,9 +2,15 @@
 import { ref, onMounted, computed } from "vue";
 import axios from "axios";
 import { useBlogStore } from "@/stores/blog";
+import { useThemeStore } from "@/stores/theme";
 
 // 获取博客Store
 const blogStore = useBlogStore();
+// 获取主题Store
+const themeStore = useThemeStore();
+
+// 计算当前是否为暗色主题
+const isDarkMode = computed(() => themeStore.theme === 'dark');
 
 // API 基础URL
 const API_URL = "http://localhost:3000/api";
@@ -13,6 +19,7 @@ const API_URL = "http://localhost:3000/api";
 const isLoading = ref(false);
 const error = ref(null);
 const activeTab = ref("dashboard");
+const activeSection = ref("dashboard");
 const posts = ref([]);
 const categories = ref([]);
 const tags = ref([]);
@@ -43,6 +50,19 @@ const batchProgress = ref(null);
 const searchQuery = ref("");
 const statusFilter = ref("");
 const categoryFilter = ref("");
+
+// 文件输入引用
+const fileInputRef = ref(null);
+const batchFileInputRef = ref(null);
+
+// 系统相关状态
+const syncStatus = ref(null);
+
+// 分类同步状态
+const categorySync = ref(null);
+
+// 标签同步状态
+const tagSync = ref(null);
 
 // 加载统计信息
 const loadStats = async () => {
@@ -166,7 +186,16 @@ const handleUpload = async () => {
     );
 
     uploadProgress.value = { status: "success", message: "上传成功!" };
+
+    // 清空表单
     uploadFile.value = null;
+    uploadCategory.value = "";
+    uploadTags.value = "";
+
+    // 重置文件输入框
+    if (fileInputRef.value) {
+      fileInputRef.value.value = "";
+    }
 
     // 直接更新本地状态
     posts.value.unshift(response.data.data);
@@ -180,10 +209,6 @@ const handleUpload = async () => {
 
     // 显式标记更新通知其他页面
     blogStore.markUpdate();
-
-    // 清除表单
-    uploadCategory.value = "";
-    uploadTags.value = "";
   } catch (err) {
     uploadProgress.value = {
       status: "error",
@@ -240,6 +265,11 @@ const handleBatchUpload = async () => {
     batchFiles.value = [];
     batchCategory.value = "";
     batchTags.value = "";
+
+    // 重置文件输入框
+    if (batchFileInputRef.value) {
+      batchFileInputRef.value.value = "";
+    }
 
     // 并行更新统计信息和文章列表，提高响应速度
     await Promise.all([
@@ -342,6 +372,172 @@ const applyFilters = () => {
   loadPosts();
 };
 
+// 替换原来的刷新函数
+const handleRefresh = async () => {
+  try {
+    isLoading.value = true;
+    error.value = null;
+
+    // 执行全部数据刷新任务
+    const refreshTasks = [
+      loadStats(),         // 刷新统计信息
+      loadPosts(),         // 刷新博客列表
+      loadCategories(),    // 刷新分类
+      loadTags(),          // 刷新标签
+      blogStore.refreshData(), // 刷新前端博客数据
+    ];
+
+    // 并行执行所有刷新任务
+    await Promise.all(refreshTasks);
+
+    // 显示成功消息
+    const successMessage = {
+      status: 'success',
+      message: '数据刷新成功！'
+    };
+
+    // 根据当前标签设置相应的状态消息
+    if (activeTab.value === 'upload') {
+      uploadProgress.value = successMessage;
+      setTimeout(() => {
+        uploadProgress.value = null;
+      }, 3000);
+    } else if (activeTab.value === 'batch') {
+      batchProgress.value = successMessage;
+      setTimeout(() => {
+        batchProgress.value = null;
+      }, 3000);
+    } else {
+      // 对于其他页面，添加一个临时的成功提示
+      error.value = '数据刷新成功！';
+      setTimeout(() => {
+        error.value = null;
+      }, 3000);
+    }
+
+  } catch (err) {
+    error.value = '刷新数据失败，请稍后重试';
+    console.error('刷新数据失败:', err);
+  } finally {
+    isLoading.value = false;
+  }
+};
+
+// 修改导航切换逻辑，确保加载相应数据
+const switchTab = async (section, tab) => {
+  activeSection.value = section;
+  activeTab.value = tab;
+
+  // 根据激活的标签页加载相应数据
+  if (tab === 'dashboard') {
+    await loadStats();
+  } else if (tab === 'posts') {
+    await loadPosts();
+  } else if (tab === 'categories') {
+    await loadCategories();
+  } else if (tab === 'tags') {
+    await loadTags();
+  }
+};
+
+// 同步文件系统和数据库
+const syncFilesWithDatabase = async () => {
+  if (!confirm("确定要同步文件系统和数据库吗？这将删除没有对应Markdown文件的博客记录。")) {
+    return;
+  }
+
+  try {
+    isLoading.value = true;
+    syncStatus.value = { status: "syncing", message: "正在同步文件系统和数据库..." };
+
+    const response = await axios.post(`${API_URL}/admin/sync-files`);
+
+    syncStatus.value = {
+      status: "success",
+      message: response.data.data.message,
+      details: response.data.data.result
+    };
+
+    // 更新统计信息和文章列表
+    await Promise.all([
+      loadStats(),
+      loadPosts(),
+      blogStore.refreshData(), // 刷新前端博客数据
+    ]);
+
+    // 显式标记更新通知其他页面
+    blogStore.markUpdate();
+  } catch (err) {
+    syncStatus.value = {
+      status: "error",
+      message: err.response?.data?.message || "同步失败",
+    };
+    console.error("同步文件系统和数据库失败:", err);
+  } finally {
+    isLoading.value = false;
+  }
+};
+
+// 同步分类
+const syncCategories = async () => {
+  try {
+    isLoading.value = true;
+    categorySync.value = { status: "syncing", message: "正在同步分类..." };
+
+    // 调用同步接口
+    const response = await axios.post(`${API_URL}/admin/sync-categories`);
+
+    // 更新同步状态
+    categorySync.value = {
+      status: "success",
+      message: response.data.data.message,
+      results: response.data.data.results
+    };
+
+    // 刷新分类列表
+    await loadCategories();
+
+  } catch (err) {
+    categorySync.value = {
+      status: "error",
+      message: err.response?.data?.message || "分类同步失败"
+    };
+    console.error("分类同步失败:", err);
+  } finally {
+    isLoading.value = false;
+  }
+};
+
+// 同步标签
+const syncTags = async () => {
+  try {
+    isLoading.value = true;
+    tagSync.value = { status: "syncing", message: "正在同步标签..." };
+
+    // 调用同步接口
+    const response = await axios.post(`${API_URL}/admin/sync-tags`);
+
+    // 更新同步状态
+    tagSync.value = {
+      status: "success",
+      message: response.data.data.message,
+      results: response.data.data.results
+    };
+
+    // 刷新标签列表
+    await loadTags();
+
+  } catch (err) {
+    tagSync.value = {
+      status: "error",
+      message: err.response?.data?.message || "标签同步失败"
+    };
+    console.error("标签同步失败:", err);
+  } finally {
+    isLoading.value = false;
+  }
+};
+
 // 初始加载数据
 onMounted(() => {
   loadStats();
@@ -352,94 +548,160 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="container mx-auto px-4 py-6">
+  <div class="container mx-auto px-4 py-6" :class="{ 'dark': isDarkMode }">
     <div class="bg-white dark:bg-gray-800 rounded-lg shadow">
       <div class="p-6">
-        <h1 class="text-2xl font-bold mb-6">博客管理后台</h1>
+        <div class="flex justify-between items-center mb-6">
+          <h1 class="text-2xl font-bold">网站管理后台</h1>
+          <button @click="handleRefresh" :disabled="isLoading"
+            class="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors flex items-center gap-1 disabled:opacity-50">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" :class="{ 'animate-spin': isLoading }" fill="none"
+              viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            </svg>
+            <span>{{ '刷新' }}</span>
+          </button>
+        </div>
 
         <!-- 提示消息 -->
-        <div v-if="error" class="mb-4 p-3 bg-red-100 text-red-700 rounded">
+        <div v-if="error" :class="[
+          'mb-4 p-3 rounded',
+          error === '数据刷新成功！'
+            ? 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-200'
+            : 'bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-200'
+        ]">
           {{ error }}
         </div>
 
-        <!-- 标签页导航 -->
-        <div class="border-b border-gray-200 mb-6">
+        <!-- 主导航 -->
+        <div class="flex mb-6 border-b border-gray-200">
+          <button @click="switchTab('dashboard', 'dashboard')" class="px-4 py-2 font-medium relative" :class="activeSection === 'dashboard'
+            ? 'text-blue-600 border-b-2 border-blue-600'
+            : 'text-gray-500 hover:text-gray-700'">
+            <div class="flex items-center">
+              <svg class="mr-2 h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="3" y="3" width="7" height="7" rx="1" />
+                <rect x="14" y="3" width="7" height="7" rx="1" />
+                <rect x="3" y="14" width="7" height="7" rx="1" />
+                <rect x="14" y="14" width="7" height="7" rx="1" />
+              </svg>
+              仪表盘
+            </div>
+          </button>
+
+          <button @click="switchTab('blog', 'posts')" class="px-4 py-2 font-medium relative" :class="activeSection === 'blog'
+            ? 'text-blue-600 border-b-2 border-blue-600'
+            : 'text-gray-500 hover:text-gray-700'">
+            <div class="flex items-center">
+              <svg class="mr-2 h-5 w-5" viewBox="0 0 16 16" fill="currentColor">
+                <path
+                  d="M0 1.75C0 .784.784 0 1.75 0h12.5C15.216 0 16 .784 16 1.75v12.5A1.75 1.75 0 0 1 14.25 16H1.75A1.75 1.75 0 0 1 0 14.25Zm1.75-.25a.25.25 0 0 0-.25.25v12.5c0 .138.112.25.25.25h12.5a.25.25 0 0 0 .25-.25V1.75a.25.25 0 0 0-.25-.25Zm11.75 4.5a.75.75 0 0 0 0-1.5h-8.5a.75.75 0 0 0 0 1.5ZM6 8a.75.75 0 0 0 0 1.5h4a.75.75 0 0 0 0-1.5Zm-3 4.75a.75.75 0 0 1 .75-.75h8.5a.75.75 0 0 1 0 1.5h-8.5a.75.75 0 0 1-.75-.75Z">
+                </path>
+              </svg>
+              博客管理
+            </div>
+          </button>
+
+          <button @click="switchTab('system', 'settings')" class="px-4 py-2 font-medium relative" :class="activeSection === 'system'
+            ? 'text-blue-600 border-b-2 border-blue-600'
+            : 'text-gray-500 hover:text-gray-700'">
+            <div class="flex items-center">
+              <svg class="mr-2 h-5 w-5" viewBox="0 0 16 16" fill="currentColor">
+                <path
+                  d="M8 0a8.2 8.2 0 0 1 .701.031C9.444.095 9.99.645 10.16 1.29l.288 1.107c.018.066.079.158.212.224.231.114.454.243.668.386.123.082.233.09.299.071l1.103-.303c.644-.176 1.392.021 1.82.63.27.385.506.792.704 1.218.315.675.111 1.422-.364 1.891l-.814.806c-.049.048-.098.147-.088.294.016.257.016.515 0 .772-.01.147.038.246.088.294l.814.806c.475.47.679 1.216.364 1.891a7.977 7.977 0 0 1-.704 1.217c-.428.61-1.176.807-1.82.63l-1.102-.302c-.067-.019-.177-.011-.3.071a5.909 5.909 0 0 1-.668.386c-.133.066-.194.158-.211.224l-.29 1.106c-.168.646-.715 1.196-1.458 1.26a8.006 8.006 0 0 1-1.402 0c-.743-.064-1.289-.614-1.458-1.26l-.289-1.106c-.018-.066-.079-.158-.212-.224a5.738 5.738 0 0 1-.668-.386c-.123-.082-.233-.09-.299-.071l-1.103.303c-.644.176-1.392-.021-1.82-.63a8.12 8.12 0 0 1-.704-1.218c-.315-.675-.111-1.422.363-1.891l.815-.806c.05-.048.098-.147.088-.294a6.214 6.214 0 0 1 0-.772c.01-.147-.038-.246-.088-.294l-.815-.806C.635 6.045.431 5.298.746 4.624a7.92 7.92 0 0 1 .704-1.217c.428-.61 1.176-.807 1.82-.63l1.102.302c.067.019.177.011.3-.071.214-.143.437-.272.668-.386.133-.066.194-.158.211-.224l.29-1.106C6.009.645 6.556.095 7.299.03 7.53.01 7.764 0 8 0Zm-.571 1.525c-.036.003-.108.036-.137.146l-.289 1.105c-.147.561-.549.967-.998 1.189-.173.086-.34.183-.5.29-.417.278-.97.423-1.529.27l-1.103-.303c-.109-.03-.175.016-.195.045-.22.312-.412.644-.573.99-.014.031-.021.11.059.19l.815.806c.411.406.562.957.53 1.456-.049.767-.435 1.266-.535 1.362-.1.097-.587.443-1.355.494-.493.032-1.044-.118-1.45-.53l-.816-.806c-.08-.08-.159-.73-.13-.18.21-.345.403-.677.572-.989.02-.029.086-.075.195-.045l1.102.302c.56.153 1.113.008 1.53-.27.161-.107.328-.204.501-.29.447-.222.85-.629.997-1.189l.289-1.105c.029-.11.101-.143.137-.146.018-.002.035-.002.053-.002.219 0 .635.002.962.003.327.001.743.002.962.001.018 0 .035 0 .053.002.035.003.108.036.137.146l.289 1.105c.147.561.549.967.998 1.189.173.086.34.183.5.29.417.278.97.423 1.529.27l1.103-.303c.109-.03.175.016.195.045.22.312.412.644.573.99.014.031.021.11-.059.19l-.815.806c-.411.406-.562.957-.53 1.456.049.767.435 1.266.535 1.362.1.097.587.443 1.355.494.493.032 1.044-.118 1.45-.53l.816-.806c.08-.08.159-.73.13-.18-.21-.345-.677-.572-.989-.02-.029-.086-.075-.195-.045l-1.102.302c-.56.153-1.113.008-1.53-.27-.161-.107-.328-.204-.501-.29-.447-.222-.85-.629-.997-1.189l-.289-1.105c-.029-.11-.101-.143-.137-.146-.018-.002-.035-.002-.053-.002-.219 0-.635.002-.962.003-.327.001-.743.002-.962.001-.018 0-.035 0 -.053-.002Z">
+                </path>
+              </svg>
+              系统设置
+            </div>
+          </button>
+        </div>
+
+        <!-- 子导航（只在博客管理部分显示） -->
+        <div v-if="activeSection === 'blog'" class="border-b border-gray-200 mb-6">
           <ul class="flex flex-wrap -mb-px">
             <li class="mr-2">
-              <button
-                @click="activeTab = 'dashboard'"
-                class="inline-block py-2 px-4 font-medium"
-                :class="
-                  activeTab === 'dashboard'
-                    ? 'text-blue-600 border-b-2 border-blue-600'
-                    : 'text-gray-500 hover:text-gray-700'
-                "
-              >
-                仪表盘
-              </button>
-            </li>
-            <li class="mr-2">
-              <button
-                @click="activeTab = 'posts'"
-                class="inline-block py-2 px-4 font-medium"
-                :class="
-                  activeTab === 'posts'
-                    ? 'text-blue-600 border-b-2 border-blue-600'
-                    : 'text-gray-500 hover:text-gray-700'
-                "
-              >
+              <button @click="switchTab('blog', 'posts')" class="inline-block py-2 px-4 font-medium" :class="activeTab === 'posts'
+                ? 'text-blue-600 border-b-2 border-blue-600'
+                : 'text-gray-500 hover:text-gray-700'">
                 文章管理
               </button>
             </li>
             <li class="mr-2">
-              <button
-                @click="activeTab = 'upload'"
-                class="inline-block py-2 px-4 font-medium"
-                :class="
-                  activeTab === 'upload'
-                    ? 'text-blue-600 border-b-2 border-blue-600'
-                    : 'text-gray-500 hover:text-gray-700'
-                "
-              >
+              <button @click="switchTab('blog', 'upload')" class="inline-block py-2 px-4 font-medium" :class="activeTab === 'upload'
+                ? 'text-blue-600 border-b-2 border-blue-600'
+                : 'text-gray-500 hover:text-gray-700'">
                 上传文章
               </button>
             </li>
             <li>
-              <button
-                @click="activeTab = 'batch'"
-                class="inline-block py-2 px-4 font-medium"
-                :class="
-                  activeTab === 'batch'
-                    ? 'text-blue-600 border-b-2 border-blue-600'
-                    : 'text-gray-500 hover:text-gray-700'
-                "
-              >
+              <button @click="switchTab('blog', 'batch')" class="inline-block py-2 px-4 font-medium" :class="activeTab === 'batch'
+                ? 'text-blue-600 border-b-2 border-blue-600'
+                : 'text-gray-500 hover:text-gray-700'">
                 批量上传
+              </button>
+            </li>
+            <li>
+              <button @click="switchTab('blog', 'categories')" class="inline-block py-2 px-4 font-medium" :class="activeTab === 'categories'
+                ? 'text-blue-600 border-b-2 border-blue-600'
+                : 'text-gray-500 hover:text-gray-700'">
+                分类管理
+              </button>
+            </li>
+            <li>
+              <button @click="switchTab('blog', 'tags')" class="inline-block py-2 px-4 font-medium" :class="activeTab === 'tags'
+                ? 'text-blue-600 border-b-2 border-blue-600'
+                : 'text-gray-500 hover:text-gray-700'">
+                标签管理
               </button>
             </li>
           </ul>
         </div>
+
+        <!-- 当前内容部分 -->
 
         <!-- 仪表盘 -->
         <div v-if="activeTab === 'dashboard'" class="space-y-6">
           <div v-if="isLoading" class="text-center py-6">加载中...</div>
 
           <div v-else-if="stats" class="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div class="bg-blue-50 dark:bg-blue-900 p-6 rounded-lg shadow-sm">
+            <div class="bg-blue-200 dark:bg-blue-900 p-6 rounded-lg shadow-sm">
               <h2 class="text-lg font-semibold mb-2">文章数量</h2>
               <p class="text-3xl font-bold">{{ stats.counts.posts }}</p>
             </div>
 
-            <div class="bg-green-50 dark:bg-green-900 p-6 rounded-lg shadow-sm">
+            <div class="bg-green-200 dark:bg-green-900 p-6 rounded-lg shadow-sm">
               <h2 class="text-lg font-semibold mb-2">分类数量</h2>
               <p class="text-3xl font-bold">{{ stats.counts.categories }}</p>
+              <div class="mt-3 max-h-36 overflow-y-auto">
+                <div class="flex flex-wrap gap-2">
+                  <span v-for="category in stats.categories.slice(0, 5)" :key="category._id"
+                    class="px-2 py-1 text-xs rounded-full bg-white dark:bg-green-800 border border-green-200 text-green-800 dark:text-green-200">
+                    {{ category.name }}
+                  </span>
+                  <span v-if="stats.categories.length > 5"
+                    class="px-2 py-1 text-xs bg-white dark:bg-green-800 border border-green-200 rounded-full text-green-800 dark:text-green-200">
+                    等共{{ stats.categories.length }}个分类
+                  </span>
+                </div>
+              </div>
             </div>
 
-            <div
-              class="bg-purple-50 dark:bg-purple-900 p-6 rounded-lg shadow-sm"
-            >
+            <div class="bg-purple-200 dark:bg-purple-900 p-6 rounded-lg shadow-sm">
               <h2 class="text-lg font-semibold mb-2">标签数量</h2>
               <p class="text-3xl font-bold">{{ stats.counts.tags }}</p>
+              <div class="mt-3 max-h-36 overflow-y-auto">
+                <div class="flex flex-wrap gap-2">
+                  <span v-for="tag in stats.tags.slice(0, 5)" :key="tag._id"
+                    class="px-2 py-1 text-xs rounded-full bg-white dark:bg-purple-800 border border-purple-200 text-purple-800 dark:text-purple-200">
+                    {{ tag.name }}
+                  </span>
+                  <span v-if="stats.tags.length > 5"
+                    class="px-2 py-1 text-xs bg-white dark:bg-purple-800 border border-purple-200 rounded-full text-purple-800 dark:text-purple-200">
+                    等共{{ stats.tags.length }}个标签
+                  </span>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -447,32 +709,39 @@ onMounted(() => {
           <div v-if="stats && stats.recentPosts.length > 0" class="mt-6">
             <h3 class="text-xl font-semibold mb-3">最近文章</h3>
             <div class="overflow-x-auto">
-              <table
-                class="min-w-full bg-white dark:bg-gray-800 rounded-lg overflow-hidden"
-              >
+              <table class="min-w-full bg-white dark:bg-gray-800 rounded-lg overflow-hidden">
                 <thead class="bg-gray-100 dark:bg-gray-700">
                   <tr>
                     <th class="py-3 px-4 text-left">标题</th>
+                    <th class="py-3 px-4 text-left">分类</th>
+                    <th class="py-3 px-4 text-left">标签</th>
                     <th class="py-3 px-4 text-left">状态</th>
                     <th class="py-3 px-4 text-left">发布日期</th>
                   </tr>
                 </thead>
                 <tbody>
-                  <tr
-                    v-for="post in stats.recentPosts"
-                    :key="post._id"
-                    class="border-b dark:border-gray-700"
-                  >
+                  <tr v-for="post in stats.recentPosts" :key="post._id" class="border-b dark:border-gray-700">
                     <td class="py-3 px-4">{{ post.title }}</td>
                     <td class="py-3 px-4">
                       <span
-                        class="px-2 py-1 text-xs rounded-full"
-                        :class="
-                          post.status === 'published'
-                            ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
-                            : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200'
-                        "
-                      >
+                        class="px-2 py-1 text-xs rounded-full bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">{{
+                          post.category?.name || "未分类" }}</span>
+
+                    </td>
+                    <td class="py-3 px-4">
+                      <div class="flex flex-wrap gap-1">
+                        <span v-for="tag in post.tags" :key="tag._id"
+                          class="px-2 py-0.5 text-xs rounded-full bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200">
+                          {{ tag.name }}
+                        </span>
+                        <span v-if="!post.tags || post.tags.length === 0" class="text-gray-400 text-xs">无标签</span>
+                      </div>
+                    </td>
+                    <td class="py-3 px-4">
+                      <span class="px-2 py-1 text-xs rounded-full" :class="post.status === 'published'
+                        ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
+                        : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200'
+                        ">
                         {{ post.status === "published" ? "已发布" : "草稿" }}
                       </span>
                     </td>
@@ -491,21 +760,13 @@ onMounted(() => {
           <!-- 过滤和搜索 -->
           <div class="mb-6 flex flex-wrap items-center gap-4">
             <div class="flex-1 min-w-[200px]">
-              <input
-                v-model="searchQuery"
-                @keyup.enter="applyFilters"
-                type="text"
-                placeholder="搜索文章..."
-                class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
+              <input v-model="searchQuery" @keyup.enter="applyFilters" type="text" placeholder="搜索文章..."
+                class="w-full px-3 py-2 border rounded-lg dark:text-gray-200 dark:bg-gray-700 dark:border-gray-600" />
             </div>
 
             <div>
-              <select
-                v-model="statusFilter"
-                @change="applyFilters"
-                class="px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
+              <select v-model="statusFilter" @change="applyFilters"
+                class="px-4 py-2 border rounded-lg dark:text-gray-200 dark:bg-gray-700 dark:border-gray-600">
                 <option value="">所有状态</option>
                 <option value="published">已发布</option>
                 <option value="draft">草稿</option>
@@ -513,65 +774,56 @@ onMounted(() => {
             </div>
 
             <div>
-              <select
-                v-model="categoryFilter"
-                @change="applyFilters"
-                class="px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
+              <select v-model="categoryFilter" @change="applyFilters"
+                class="px-4 py-2 border rounded-lg dark:text-gray-200 dark:bg-gray-700 dark:border-gray-600">
                 <option value="">所有分类</option>
-                <option
-                  v-for="category in categories"
-                  :key="category._id"
-                  :value="category.name"
-                >
+                <option v-for="category in categories" :key="category._id" :value="category.name">
                   {{ category.name }}
                 </option>
               </select>
             </div>
 
-            <button
-              @click="applyFilters"
-              class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
+            <button @click="applyFilters"
+              class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500">
               应用过滤
             </button>
           </div>
 
           <!-- 文章列表 -->
-          <div v-if="isLoading" class="text-center py-6">加载中...</div>
+          <!-- <div v-if="isLoading" class="text-center py-6">加载中...</div> -->
 
-          <div v-else class="overflow-x-auto">
-            <table
-              class="min-w-full bg-white dark:bg-gray-800 rounded-lg overflow-hidden"
-            >
+          <div class="overflow-x-auto">
+            <table class="min-w-full bg-white dark:bg-gray-800 rounded-lg overflow-hidden">
               <thead class="bg-gray-100 dark:bg-gray-700">
                 <tr>
                   <th class="py-3 px-4 text-left">标题</th>
                   <th class="py-3 px-4 text-left">分类</th>
+                  <th class="py-3 px-4 text-left">标签</th>
                   <th class="py-3 px-4 text-left">状态</th>
                   <th class="py-3 px-4 text-left">发布日期</th>
                   <th class="py-3 px-4 text-right">操作</th>
                 </tr>
               </thead>
               <tbody>
-                <tr
-                  v-for="post in posts"
-                  :key="post._id"
-                  class="border-b dark:border-gray-700"
-                >
+                <tr v-for="post in posts" :key="post._id" class="border-b dark:border-gray-700">
                   <td class="py-3 px-4">{{ post.title }}</td>
                   <td class="py-3 px-4">
                     {{ post.category?.name || "未分类" }}
                   </td>
                   <td class="py-3 px-4">
-                    <span
-                      class="px-2 py-1 text-xs rounded-full"
-                      :class="
-                        post.status === 'published'
-                          ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
-                          : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200'
-                      "
-                    >
+                    <div class="flex flex-wrap gap-1">
+                      <span v-for="tag in post.tags" :key="tag._id"
+                        class="px-2 py-0.5 text-xs rounded-full bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200">
+                        {{ tag.name }}
+                      </span>
+                      <span v-if="!post.tags || post.tags.length === 0" class="text-gray-400 text-xs">无标签</span>
+                    </div>
+                  </td>
+                  <td class="py-3 px-4">
+                    <span class="px-2 py-1 text-xs rounded-full" :class="post.status === 'published'
+                      ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
+                      : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200'
+                      ">
                       {{ post.status === "published" ? "已发布" : "草稿" }}
                     </span>
                   </td>
@@ -579,24 +831,15 @@ onMounted(() => {
                     {{ new Date(post.createdAt).toLocaleDateString() }}
                   </td>
                   <td class="py-3 px-4 text-right">
-                    <button
-                      v-if="post.status === 'published'"
-                      @click="changePostStatus(post._id, 'draft')"
-                      class="text-yellow-600 hover:text-yellow-800 mr-3"
-                    >
+                    <button v-if="post.status === 'published'" @click="changePostStatus(post._id, 'draft')"
+                      class="text-yellow-600 hover:text-yellow-800 mr-3">
                       下架
                     </button>
-                    <button
-                      v-else
-                      @click="changePostStatus(post._id, 'published')"
-                      class="text-green-600 hover:text-green-800 mr-3"
-                    >
+                    <button v-else @click="changePostStatus(post._id, 'published')"
+                      class="text-green-600 hover:text-green-800 mr-3">
                       发布
                     </button>
-                    <button
-                      @click="deletePost(post._id)"
-                      class="text-red-600 hover:text-red-800"
-                    >
+                    <button @click="deletePost(post._id)" class="text-red-600 hover:text-red-800">
                       删除
                     </button>
                   </td>
@@ -606,22 +849,13 @@ onMounted(() => {
           </div>
 
           <!-- 分页 -->
-          <div
-            v-if="pagination.totalPages > 1"
-            class="mt-6 flex justify-center"
-          >
+          <div v-if="pagination.totalPages > 1" class="mt-6 flex justify-center">
             <div class="flex space-x-1">
-              <button
-                v-for="page in pagination.totalPages"
-                :key="page"
-                @click="handlePageChange(page)"
-                class="px-3 py-1 rounded"
-                :class="
-                  pagination.page === page
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                "
-              >
+              <button v-for="page in pagination.totalPages" :key="page" @click="handlePageChange(page)"
+                class="px-3 py-1 rounded" :class="pagination.page === page
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                  ">
                 {{ page }}
               </button>
             </div>
@@ -634,15 +868,9 @@ onMounted(() => {
 
           <div class="space-y-4">
             <div>
-              <label class="block text-sm font-medium mb-1"
-                >Markdown 文件</label
-              >
-              <input
-                type="file"
-                @change="handleFileSelect"
-                accept=".md,text/markdown"
-                class="w-full px-3 py-2 border rounded-lg"
-              />
+              <label class="block text-sm font-medium mb-1">Markdown 文件</label>
+              <input type="file" ref="fileInputRef" @change="handleFileSelect" accept=".md,text/markdown"
+                class="w-full px-3 py-2 border rounded-lg dark:text-gray-200" />
               <p class="mt-1 text-sm text-gray-500">
                 支持 .md 格式的 Markdown 文件
               </p>
@@ -650,57 +878,41 @@ onMounted(() => {
 
             <div>
               <label class="block text-sm font-medium mb-1">分类</label>
-              <input
-                v-model="uploadCategory"
-                type="text"
-                placeholder="输入分类名称"
-                class="w-full px-3 py-2 border rounded-lg"
-              />
+              <input v-model="uploadCategory" type="text" placeholder="输入分类名称"
+                class="w-full px-3 py-2 border rounded-lg dark:text-gray-200 dark:bg-gray-700 dark:border-gray-600" />
             </div>
 
             <div>
               <label class="block text-sm font-medium mb-1">标签</label>
-              <input
-                v-model="uploadTags"
-                type="text"
-                placeholder="输入标签，用逗号分隔"
-                class="w-full px-3 py-2 border rounded-lg"
-              />
+              <input v-model="uploadTags" type="text" placeholder="输入标签，用逗号分隔"
+                class="w-full px-3 py-2 border rounded-lg dark:text-gray-200 dark:bg-gray-700 dark:border-gray-600" />
             </div>
 
             <div>
               <label class="block text-sm font-medium mb-1">状态</label>
-              <select
-                v-model="uploadStatus"
-                class="w-full px-3 py-2 border rounded-lg"
-              >
+              <select v-model="uploadStatus"
+                class="w-full px-3 py-2 border rounded-lg dark:text-gray-200 dark:bg-gray-700 dark:border-gray-600">
                 <option value="published">发布</option>
                 <option value="draft">保存为草稿</option>
               </select>
             </div>
 
             <div>
-              <button
-                @click="handleUpload"
-                :disabled="isLoading || !uploadFile"
-                class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
-              >
+              <button @click="handleUpload" :disabled="isLoading || !uploadFile"
+                class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50">
                 上传文章
               </button>
             </div>
 
             <!-- 上传状态 -->
             <div v-if="uploadProgress" class="mt-4">
-              <div
-                class="p-3 rounded-lg"
-                :class="{
-                  'bg-blue-100 text-blue-700':
-                    uploadProgress.status === 'uploading',
-                  'bg-green-100 text-green-700':
-                    uploadProgress.status === 'success',
-                  'bg-red-100 text-red-700': uploadProgress.status === 'error',
-                }"
-              >
+              <div class="p-3 rounded-lg" :class="{
+                'bg-blue-100 text-blue-700':
+                  uploadProgress.status === 'uploading',
+                'bg-green-100 text-green-700':
+                  uploadProgress.status === 'success',
+                'bg-red-100 text-red-700': uploadProgress.status === 'error',
+              }">
                 {{ uploadProgress.message }}
               </div>
             </div>
@@ -713,16 +925,9 @@ onMounted(() => {
 
           <div class="space-y-4">
             <div>
-              <label class="block text-sm font-medium mb-1"
-                >Markdown 文件</label
-              >
-              <input
-                type="file"
-                @change="handleBatchSelect"
-                accept=".md,text/markdown"
-                multiple
-                class="w-full px-3 py-2 border rounded-lg"
-              />
+              <label class="block text-sm font-medium mb-1">Markdown 文件</label>
+              <input type="file" ref="batchFileInputRef" @change="handleBatchSelect" accept=".md,text/markdown" multiple
+                class="w-full px-3 py-2 border rounded-lg dark:text-gray-200" />
               <p class="mt-1 text-sm text-gray-500">
                 可以选择多个 .md 格式的 Markdown 文件
               </p>
@@ -733,11 +938,7 @@ onMounted(() => {
                   已选择 {{ batchFiles.length }} 个文件:
                 </p>
                 <ul class="text-sm text-gray-600 mt-1 max-h-32 overflow-y-auto">
-                  <li
-                    v-for="(file, index) in batchFiles"
-                    :key="index"
-                    class="truncate"
-                  >
+                  <li v-for="(file, index) in batchFiles" :key="index" class="truncate">
                     {{ file.name }}
                   </li>
                 </ul>
@@ -746,58 +947,269 @@ onMounted(() => {
 
             <div>
               <label class="block text-sm font-medium mb-1">公共分类</label>
-              <input
-                v-model="batchCategory"
-                type="text"
-                placeholder="输入分类名称"
-                class="w-full px-3 py-2 border rounded-lg"
-              />
+              <input v-model="batchCategory" type="text" placeholder="输入分类名称"
+                class="w-full px-3 py-2 border rounded-lg dark:text-gray-200 dark:bg-gray-700 dark:border-gray-600" />
             </div>
 
             <div>
               <label class="block text-sm font-medium mb-1">公共标签</label>
-              <input
-                v-model="batchTags"
-                type="text"
-                placeholder="输入标签，用逗号分隔"
-                class="w-full px-3 py-2 border rounded-lg"
-              />
+              <input v-model="batchTags" type="text" placeholder="输入标签，用逗号分隔"
+                class="w-full px-3 py-2 border rounded-lg dark:text-gray-200 dark:bg-gray-700 dark:border-gray-600" />
             </div>
 
             <div>
               <label class="block text-sm font-medium mb-1">状态</label>
-              <select
-                v-model="batchStatus"
-                class="w-full px-3 py-2 border rounded-lg"
-              >
+              <select v-model="batchStatus"
+                class="w-full px-3 py-2 border rounded-lg dark:text-gray-200 dark:bg-gray-700 dark:border-gray-600">
                 <option value="published">发布</option>
                 <option value="draft">保存为草稿</option>
               </select>
             </div>
 
             <div>
-              <button
-                @click="handleBatchUpload"
-                :disabled="isLoading || batchFiles.length === 0"
-                class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
-              >
+              <button @click="handleBatchUpload" :disabled="isLoading || batchFiles.length === 0"
+                class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50">
                 批量上传
               </button>
             </div>
 
             <!-- 上传状态 -->
             <div v-if="batchProgress" class="mt-4">
-              <div
-                class="p-3 rounded-lg"
-                :class="{
-                  'bg-blue-100 text-blue-700':
-                    batchProgress.status === 'uploading',
-                  'bg-green-100 text-green-700':
-                    batchProgress.status === 'success',
-                  'bg-red-100 text-red-700': batchProgress.status === 'error',
-                }"
-              >
+              <div class="p-3 rounded-lg" :class="{
+                'bg-blue-100 text-blue-700':
+                  batchProgress.status === 'uploading',
+                'bg-green-100 text-green-700':
+                  batchProgress.status === 'success',
+                'bg-red-100 text-red-700': batchProgress.status === 'error',
+              }">
                 {{ batchProgress.message }}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 分类管理 -->
+        <div v-if="activeTab === 'categories'" class="max-w-2xl mx-auto">
+          <div class="flex justify-between items-center mb-4">
+            <h2 class="text-xl font-semibold">分类管理</h2>
+            <button @click="syncCategories" :disabled="isLoading"
+              class="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors flex items-center gap-1 disabled:opacity-50">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" :class="{ 'animate-spin': isLoading }" fill="none"
+                viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+              <span>{{ isLoading ? '同步中...' : '同步分类' }}</span>
+            </button>
+          </div>
+
+          <!-- 同步状态 -->
+          <div v-if="categorySync" class="mb-4">
+            <div class="p-3 rounded-lg" :class="{
+              'bg-blue-100 text-blue-700': categorySync.status === 'syncing',
+              'bg-green-100 text-green-700': categorySync.status === 'success',
+              'bg-red-100 text-red-700': categorySync.status === 'error',
+            }">
+              <div class="mb-2">{{ categorySync.message }}</div>
+
+              <!-- 成功时显示详情 -->
+              <div v-if="categorySync.status === 'success' && categorySync.results">
+                <div v-if="categorySync.results.total > 0" class="mt-2">
+                  <p class="font-medium">已删除的未使用分类:</p>
+                  <div class="max-h-36 overflow-y-auto mt-1 border rounded p-2">
+                    <div v-for="(category, index) in categorySync.results.deleted" :key="index" class="text-sm mb-1">
+                      <span class="font-medium">{{ category.name }}</span>
+                      <span class="text-xs ml-2">({{ category.slug }})</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div v-if="isLoading" class="text-center py-6">加载中...</div>
+          <div v-else-if="categories.length > 0" class="space-y-4">
+            <div class="bg-gray-50 dark:bg-gray-800 rounded-lg p-4">
+              <h3 class="font-medium mb-2">现有分类</h3>
+              <div class="flex flex-wrap gap-2">
+                <div v-for="category in categories" :key="category._id"
+                  class="px-3 py-1 bg-white dark:bg-gray-700 rounded-lg border flex items-center">
+                  <span>{{ category.name }}</span>
+                  <span class="ml-2 text-gray-500 text-sm">({{ category.slug }})</span>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div v-else class="text-center py-4 text-gray-500">
+            暂无分类数据
+          </div>
+        </div>
+
+        <!-- 标签管理 -->
+        <div v-if="activeTab === 'tags'" class="max-w-2xl mx-auto">
+          <div class="flex justify-between items-center mb-4">
+            <h2 class="text-xl font-semibold">标签管理</h2>
+            <button @click="syncTags" :disabled="isLoading"
+              class="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors flex items-center gap-1 disabled:opacity-50">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" :class="{ 'animate-spin': isLoading }" fill="none"
+                viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+              <span>{{ isLoading ? '同步中...' : '同步标签' }}</span>
+            </button>
+          </div>
+
+          <!-- 同步状态 -->
+          <div v-if="tagSync" class="mb-4">
+            <div class="p-3 rounded-lg" :class="{
+              'bg-blue-100 text-blue-700': tagSync.status === 'syncing',
+              'bg-green-100 text-green-700': tagSync.status === 'success',
+              'bg-red-100 text-red-700': tagSync.status === 'error',
+            }">
+              <div class="mb-2">{{ tagSync.message }}</div>
+
+              <!-- 成功时显示详情 -->
+              <div v-if="tagSync.status === 'success' && tagSync.results">
+                <div v-if="tagSync.results.total > 0" class="mt-2">
+                  <p class="font-medium">已删除的未使用标签:</p>
+                  <div class="max-h-36 overflow-y-auto mt-1 border rounded p-2">
+                    <div v-for="(tag, index) in tagSync.results.deleted" :key="index" class="text-sm mb-1">
+                      <span class="font-medium">{{ tag.name }}</span>
+                      <span class="text-xs ml-2">({{ tag.slug }})</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div v-if="isLoading" class="text-center py-6">加载中...</div>
+          <div v-else-if="tags.length > 0" class="space-y-4">
+            <div class="bg-gray-50 dark:bg-gray-800 rounded-lg p-4">
+              <h3 class="font-medium mb-2">现有标签</h3>
+              <div class="flex flex-wrap gap-2">
+                <div v-for="tag in tags" :key="tag._id"
+                  class="px-3 py-1 bg-white dark:bg-gray-700 rounded-lg border flex items-center">
+                  <span>{{ tag.name }}</span>
+                  <span class="ml-2 text-gray-500 text-sm">({{ tag.slug }})</span>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div v-else class="text-center py-4 text-gray-500">
+            暂无标签数据
+          </div>
+        </div>
+
+        <!-- 系统设置 -->
+        <div v-if="activeTab === 'settings'" class="max-w-2xl mx-auto">
+          <h2 class="text-xl font-semibold mb-6">系统设置</h2>
+
+          <div class="space-y-8">
+            <!-- 基本设置部分 -->
+            <div class="space-y-4">
+              <h3 class="font-medium text-lg border-b pb-2">基本设置</h3>
+
+              <div class="bg-gray-50 dark:bg-gray-800 rounded-lg p-4">
+                <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                  这里是网站的基本设置，包括网站标题、描述等信息。这些设置会影响网站的显示和SEO。
+                </p>
+
+                <p class="text-center text-gray-500 italic">
+                  此功能正在开发中...
+                </p>
+              </div>
+            </div>
+
+            <!-- 数据同步部分 -->
+            <div class="space-y-4">
+              <h3 class="font-medium text-lg border-b pb-2">数据同步</h3>
+
+              <div class="bg-gray-50 dark:bg-gray-800 rounded-lg p-4">
+                <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                  同步文件系统和数据库可以确保所有数据的一致性。当你手动删除或添加文件时，可以使用此功能更新数据库。
+                </p>
+
+                <div class="flex flex-wrap gap-3">
+                  <button @click="syncFilesWithDatabase" :disabled="isLoading"
+                    class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50">
+                    {{ isLoading ? '同步中...' : '同步文件系统和数据库' }}
+                  </button>
+                </div>
+
+                <!-- 同步状态 -->
+                <div v-if="syncStatus" class="mt-4">
+                  <div class="p-3 rounded-lg" :class="{
+                    'bg-blue-100 text-blue-700':
+                      syncStatus.status === 'syncing',
+                    'bg-green-100 text-green-700':
+                      syncStatus.status === 'success',
+                    'bg-red-100 text-red-700': syncStatus.status === 'error',
+                  }">
+                    <div class="mb-2">{{ syncStatus.message }}</div>
+
+                    <!-- 成功时显示详情 -->
+                    <div v-if="syncStatus.status === 'success' && syncStatus.details">
+                      <p class="font-medium mt-2">同步详情:</p>
+                      <ul class="list-disc pl-5 mt-1 text-sm">
+                        <li>检查文章数: {{ syncStatus.details.checked }}</li>
+                        <li>删除文章数: {{ syncStatus.details.removed.length }}</li>
+                        <li v-if="syncStatus.details.errors.length > 0">错误数: {{ syncStatus.details.errors.length }}</li>
+                      </ul>
+
+                      <!-- 显示被删除的文章列表 -->
+                      <div v-if="syncStatus.details.removed.length > 0" class="mt-2">
+                        <p class="font-medium">已删除文章:</p>
+                        <div class="max-h-40 overflow-y-auto mt-1 border rounded p-2">
+                          <div v-for="(post, index) in syncStatus.details.removed" :key="index" class="text-sm mb-1">
+                            <span class="font-medium">{{ post.title }}</span>
+                            <span class="text-xs ml-2">分类: {{ post.category }}</span>
+                            <span v-if="post.tags && post.tags.length > 0" class="text-xs ml-2">
+                              标签: {{ post.tags.join(', ') }}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- 数据备份部分 -->
+            <div class="space-y-4">
+              <h3 class="font-medium text-lg border-b pb-2">数据备份</h3>
+
+              <div class="bg-gray-50 dark:bg-gray-800 rounded-lg p-4">
+                <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                  定期备份数据可以防止数据丢失。你可以在这里手动备份数据或设置自动备份计划。
+                </p>
+
+                <div class="flex flex-wrap gap-3">
+                  <button
+                    class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    导出博客数据
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- 缓存管理部分 -->
+            <div class="space-y-4">
+              <h3 class="font-medium text-lg border-b pb-2">缓存管理</h3>
+
+              <div class="bg-gray-50 dark:bg-gray-800 rounded-lg p-4">
+                <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                  清理缓存可以释放浏览器空间并获取最新数据。这对于解决显示问题很有帮助。
+                </p>
+
+                <div class="flex flex-wrap gap-3">
+                  <button @click="blogStore.refreshData()"
+                    class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    清理博客缓存
+                  </button>
+                </div>
               </div>
             </div>
           </div>
