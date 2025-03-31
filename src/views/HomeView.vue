@@ -5,7 +5,8 @@ import { useProfileStore } from "@/stores/profile";
 import HomeSidebar from "@/components/HomeSidebar.vue";
 import BlogCard from "@/components/BlogCard.vue";
 import RepoCard from "@/components/RepoCard.vue";
-import { onMounted, computed, ref } from "vue";
+import { onMounted, computed, ref, onActivated } from "vue";
+import { useSidebarStore } from "@/stores/sidebar";
 
 const blogStore = useBlogStore();
 const projectStore = useProjectStore();
@@ -13,9 +14,15 @@ const profileStore = useProfileStore();
 const { profile } = profileStore;
 // 是否正在加载
 const isLoading = ref(false);
+const sidebarStore = useSidebarStore();
+const activeTab = ref("projects");
+
+// 手动刷新相关状态
+const isRefreshing = ref(false);
+const refreshMessage = ref({ show: false, text: "", isError: false });
 
 // 获取最近的博客文章（最多3篇）
-const recentPosts = blogStore.posts.slice(0, 3);
+const recentPosts = computed(() => blogStore.posts.slice(0, 3));
 
 // 获取热门项目（最多3个）- 使用 computed 属性，这样在 projects 更新时会自动重新计算
 const topProjects = computed(() => {
@@ -25,7 +32,55 @@ const topProjects = computed(() => {
     .slice(0, 3);
 });
 
-// 在组件挂载时自动获取 GitHub 仓库数据
+// 刷新数据
+const refreshData = async () => {
+  if (isRefreshing.value) return;
+
+  isRefreshing.value = true;
+  refreshMessage.value = {
+    show: true,
+    text: "正在刷新数据...",
+    isError: false,
+  };
+
+  try {
+    // 智能刷新博客数据
+    await blogStore.smartRefresh();
+
+    // 刷新项目数据（如果超过1小时未刷新）
+    const now = Date.now();
+    const oneHour = 60 * 60 * 1000;
+
+    if (now - projectStore.lastFetchTime > oneHour) {
+      const token = localStorage.getItem("github_token") || "";
+      await projectStore.fetchGitHubRepos(
+        profileStore.profile.github_username,
+        token
+      );
+    }
+
+    refreshMessage.value = {
+      show: true,
+      text: "数据刷新成功！",
+      isError: false,
+    };
+
+    // 3秒后自动隐藏消息
+    setTimeout(() => {
+      refreshMessage.value.show = false;
+    }, 3000);
+  } catch (error) {
+    refreshMessage.value = {
+      show: true,
+      text: `刷新失败: ${error.message}`,
+      isError: true,
+    };
+  } finally {
+    isRefreshing.value = false;
+  }
+};
+
+// 在组件挂载时智能刷新数据
 onMounted(async () => {
   try {
     isLoading.value = true;
@@ -47,11 +102,19 @@ onMounted(async () => {
         token
       );
     }
+
+    // 使用智能刷新，只在必要时更新数据
+    await blogStore.smartRefresh();
   } catch (error) {
     console.error("获取 GitHub 仓库失败:", error);
   } finally {
     isLoading.value = false;
   }
+});
+
+// 每次激活页面时按需刷新数据（如从其他页面导航过来）
+onActivated(async () => {
+  await blogStore.smartRefresh(); // 使用智能刷新
 });
 </script>
 
@@ -68,9 +131,101 @@ onMounted(async () => {
 
       <!-- 主内容区 -->
       <div>
-        <h1 class="text-2xl font-bold mb-6">
-          欢迎来到{{ profile.name }}的个人网站
-        </h1>
+        <div class="flex justify-between items-center mb-6">
+          <h1 class="text-2xl font-bold">
+            欢迎来到{{ profile.name }}的个人网站
+          </h1>
+          <button
+            @click="refreshData"
+            class="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors flex items-center"
+            :disabled="isRefreshing"
+          >
+            <svg
+              v-if="isRefreshing"
+              class="animate-spin -ml-1 mr-2 h-4 w-4 text-white"
+              xmlns="http://www.w3.org/2000/svg"
+              fill="none"
+              viewBox="0 0 24 24"
+            >
+              <circle
+                class="opacity-25"
+                cx="12"
+                cy="12"
+                r="10"
+                stroke="currentColor"
+                stroke-width="4"
+              ></circle>
+              <path
+                class="opacity-75"
+                fill="currentColor"
+                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+              ></path>
+            </svg>
+            <span v-else class="mr-2">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                class="h-4 w-4"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                />
+              </svg>
+            </span>
+            刷新
+          </button>
+        </div>
+
+        <!-- 刷新状态消息 -->
+        <div v-if="refreshMessage.show" class="mb-4">
+          <div
+            :class="[
+              'p-3 rounded-md',
+              refreshMessage.isError
+                ? 'bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300'
+                : 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300',
+            ]"
+          >
+            <div class="flex items-center">
+              <svg
+                v-if="refreshMessage.isError"
+                xmlns="http://www.w3.org/2000/svg"
+                class="h-5 w-5 mr-2"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                />
+              </svg>
+              <svg
+                v-else
+                xmlns="http://www.w3.org/2000/svg"
+                class="h-5 w-5 mr-2"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+                />
+              </svg>
+              <span>{{ refreshMessage.text }}</span>
+            </div>
+          </div>
+        </div>
 
         <!-- 最近文章 -->
         <section class="mb-10">
@@ -83,6 +238,12 @@ onMounted(async () => {
 
           <div class="space-y-4">
             <BlogCard v-for="post in recentPosts" :key="post.id" :post="post" />
+            <div
+              v-if="recentPosts.length === 0"
+              class="text-center py-4 text-gray-500"
+            >
+              暂无文章
+            </div>
           </div>
         </section>
 

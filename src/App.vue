@@ -1,7 +1,63 @@
 <script setup>
-import { RouterView } from "vue-router";
+import { RouterView, useRouter } from "vue-router";
 import TheHeader from "@/components/TheHeader.vue";
 import NightSky from "@/components/NightSky.vue";
+import { useBlogStore } from "@/stores/blog";
+import { onMounted, onUnmounted, watch } from "vue";
+
+// 获取博客Store和路由
+const blogStore = useBlogStore();
+const router = useRouter();
+
+// 设置自动刷新间隔（5分钟）
+const REFRESH_INTERVAL = 5 * 60 * 1000;
+let autoRefreshTimer = null;
+
+// 自动刷新函数，只在博客页面激活
+const startAutoRefresh = () => {
+  // 清除可能存在的定时器
+  if (autoRefreshTimer) {
+    clearInterval(autoRefreshTimer);
+    autoRefreshTimer = null;
+  }
+
+  // 只有当用户正在查看博客相关页面时才启动定时器
+  if (router.currentRoute.value.path.startsWith("/blog")) {
+    console.log("启动博客数据自动刷新定时器");
+    autoRefreshTimer = setInterval(() => {
+      console.log("定时刷新博客数据...");
+      blogStore.smartRefresh(); // 使用智能刷新，只在必要时更新
+    }, REFRESH_INTERVAL);
+  }
+};
+
+// 监听路由变化，只在博客页面启动定时器
+watch(
+  () => router.currentRoute.value.path,
+  (newPath) => {
+    if (newPath.startsWith("/blog")) {
+      startAutoRefresh();
+    } else if (autoRefreshTimer) {
+      console.log("离开博客页面，停止自动刷新");
+      clearInterval(autoRefreshTimer);
+      autoRefreshTimer = null;
+    }
+  },
+  { immediate: true }
+);
+
+// 组件挂载时启动自动刷新
+onMounted(() => {
+  startAutoRefresh();
+});
+
+// 组件卸载时清除定时器
+onUnmounted(() => {
+  if (autoRefreshTimer) {
+    clearInterval(autoRefreshTimer);
+    autoRefreshTimer = null;
+  }
+});
 </script>
 
 <template>
