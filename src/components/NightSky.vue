@@ -38,7 +38,7 @@ const METEOR_CONFIG = {
   minWidth: 2.5, // 保持当前宽度
   maxWidth: 4, // 保持当前宽度
   trailLength: 150, // 保持当前拖尾长度
-  fadeRate: 0.0012, // 进一步减慢淡化速度，使流星持续更长时间
+  fadeRate: 0.002, // 进一步减慢淡化速度，使流星持续更长时间
   minBrightness: 0.6, // 保持当前最小亮度
   maxBrightness: 0.9, // 保持当前最大亮度
 };
@@ -211,20 +211,17 @@ const drawMeteors = () => {
     // 设置渐变色
     gradient.addColorStop(
       0,
-      `rgba(${head.r}, ${head.g}, ${head.b}, ${
-        meteor.alpha * meteor.brightness
+      `rgba(${head.r}, ${head.g}, ${head.b}, ${meteor.alpha * meteor.brightness
       })`
     );
     gradient.addColorStop(
       0.1,
-      `rgba(${head.r}, ${head.g}, ${head.b}, ${
-        meteor.alpha * meteor.brightness * 0.8
+      `rgba(${head.r}, ${head.g}, ${head.b}, ${meteor.alpha * meteor.brightness * 0.8
       })`
     );
     gradient.addColorStop(
       0.3,
-      `rgba(${tail.r}, ${tail.g}, ${tail.b}, ${
-        meteor.alpha * meteor.brightness * 0.6
+      `rgba(${tail.r}, ${tail.g}, ${tail.b}, ${meteor.alpha * meteor.brightness * 0.6
       })`
     );
     gradient.addColorStop(1, `rgba(${tail.r}, ${tail.g}, ${tail.b}, 0)`);
