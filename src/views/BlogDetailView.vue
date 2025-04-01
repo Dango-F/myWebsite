@@ -102,10 +102,13 @@ const isCollapsed = computed(() => sidebarStore.isCollapsed);
 
 <template>
   <div class="container mx-auto px-4 py-6">
-    <div class="grid grid-cols-1 md:grid-cols-4 gap-6" :class="{
-      'md:grid-cols-[300px_1fr]': !isCollapsed,
-      'md:grid-cols-[auto_1fr]': isCollapsed,
-    }">
+    <div
+      class="grid grid-cols-1 md:grid-cols-4 gap-6"
+      :class="{
+        'md:grid-cols-[300px_1fr]': !isCollapsed,
+        'md:grid-cols-[auto_1fr]': isCollapsed,
+      }"
+    >
       <!-- 侧边栏 -->
       <div>
         <ProfileSidebar />
@@ -114,29 +117,67 @@ const isCollapsed = computed(() => sidebarStore.isCollapsed);
       <!-- 主内容区 -->
       <div>
         <div class="flex justify-between items-center mb-4">
-          <router-link to="/blog" class="inline-flex items-center text-github-gray hover:text-github-blue">
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24"
-              stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+          <router-link
+            to="/blog"
+            class="inline-flex items-center text-github-gray hover:text-github-blue"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              class="h-4 w-4 mr-1"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M10 19l-7-7m0 0l7-7m-7 7h18"
+              />
             </svg>
             返回博客列表
           </router-link>
 
-          <button @click="refreshCurrentPost"
+          <button
+            @click="refreshCurrentPost"
             class="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors flex items-center"
-            :disabled="isRefreshing">
-            <svg v-if="isRefreshing" class="animate-spin -ml-1 mr-2 h-4 w-4 text-white"
-              xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-              <path class="opacity-75" fill="currentColor"
-                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z">
-              </path>
+            :disabled="isRefreshing"
+          >
+            <svg
+              v-if="isRefreshing"
+              class="animate-spin -ml-1 mr-2 h-4 w-4 text-white"
+              xmlns="http://www.w3.org/2000/svg"
+              fill="none"
+              viewBox="0 0 24 24"
+            >
+              <circle
+                class="opacity-25"
+                cx="12"
+                cy="12"
+                r="10"
+                stroke="currentColor"
+                stroke-width="4"
+              ></circle>
+              <path
+                class="opacity-75"
+                fill="currentColor"
+                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+              ></path>
             </svg>
             <span v-else class="mr-2">
-              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24"
-                stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                  d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                class="h-4 w-4"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                />
               </svg>
             </span>
             刷新
@@ -145,29 +186,53 @@ const isCollapsed = computed(() => sidebarStore.isCollapsed);
 
         <!-- 刷新状态消息 -->
         <div v-if="refreshMessage.show" class="mb-4">
-          <div :class="[
-            'p-3 rounded-md',
-            refreshMessage.isError
-              ? 'bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300'
-              : 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300',
-          ]">
+          <div
+            :class="[
+              'p-3 rounded-md',
+              refreshMessage.isError
+                ? 'bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300'
+                : 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300',
+            ]"
+          >
             <div class="flex items-center">
-              <svg v-if="refreshMessage.isError" xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none"
-                viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                  d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              <svg
+                v-if="refreshMessage.isError"
+                xmlns="http://www.w3.org/2000/svg"
+                class="h-5 w-5 mr-2"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                />
               </svg>
-              <svg v-else xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24"
-                stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                  d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+              <svg
+                v-else
+                xmlns="http://www.w3.org/2000/svg"
+                class="h-5 w-5 mr-2"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+                />
               </svg>
               <span>{{ refreshMessage.text }}</span>
             </div>
           </div>
         </div>
 
-        <article class="bg-[var(--color-bg-primary)] border border-[var(--color-border)] rounded-md p-6">
+        <article
+          class="bg-[var(--color-bg-primary)] border border-[var(--color-border)] rounded-md p-6"
+        >
           <!-- <header class="mb-6 border-b border-[var(--color-border)] pb-4">
             <h1 class="text-2xl font-bold mb-2">{{ post.title }}</h1>
             <div class="flex items-center text-github-gray text-sm">
@@ -190,13 +255,19 @@ const isCollapsed = computed(() => sidebarStore.isCollapsed);
             </div>
           </header> -->
 
-          <div class="markdown-body prose dark:prose-invert max-w-none" v-html="renderedContent"></div>
+          <div
+            class="markdown-body prose dark:prose-invert max-w-none"
+            v-html="renderedContent"
+          ></div>
 
           <footer class="mt-6 pt-4 border-t border-[var(--color-border)]">
             <div class="flex flex-wrap gap-2">
-              <router-link v-for="tag in post.tags" :key="typeof tag === 'object' ? tag._id : tag"
+              <router-link
+                v-for="tag in post.tags"
+                :key="typeof tag === 'object' ? tag._id : tag"
                 :to="`/blog/tag/${typeof tag === 'object' ? tag.name : tag}`"
-                class="px-2 py-1 text-xs rounded-full bg-blue-100 text-github-blue dark:bg-blue-900 dark:text-blue-300 hover:bg-blue-200 dark:hover:bg-blue-800 transition-colors">
+                class="px-2 py-1 text-xs rounded-full bg-blue-100 text-github-blue dark:bg-blue-900 dark:text-blue-300 hover:bg-blue-200 dark:hover:bg-blue-800 transition-colors"
+              >
                 {{ typeof tag === "object" ? tag.name : tag }}
               </router-link>
             </div>

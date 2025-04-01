@@ -1,6 +1,6 @@
 <script setup>
 import { computed } from "vue";
-import { extractExcerpt } from "@/utils/markdown";
+import { extractExcerpt, formatDateTime } from "@/utils/markdown";
 
 const props = defineProps({
   post: {
@@ -11,6 +11,11 @@ const props = defineProps({
 
 const excerpt = computed(() => {
   return extractExcerpt(props.post.content, 150);
+});
+
+// 格式化日期时间
+const formattedDateTime = computed(() => {
+  return formatDateTime(props.post.date || props.post.createdAt);
 });
 </script>
 
@@ -27,31 +32,40 @@ const excerpt = computed(() => {
             post.title
           }}</router-link>
         </h2>
-        <span class="text-github-gray text-sm">{{ post.date }}</span>
+        <span class="text-github-gray text-sm">{{ formattedDateTime }}</span>
       </div>
       <div class="mt-2 text-github-gray">
         {{ excerpt }}
       </div>
     </div>
-    <div class="flex flex-wrap gap-2">
-      <router-link
-        v-for="tag in post.tags"
-        :key="typeof tag === 'object' ? tag._id : tag"
-        :to="`/blog/tag/${typeof tag === 'object' ? tag.name : tag}`"
-        class="px-2 py-1 text-xs rounded-full bg-blue-100 text-github-blue dark:bg-blue-900 dark:text-blue-300 hover:bg-blue-200 dark:hover:bg-blue-800 transition-colors"
-      >
-        {{ typeof tag === "object" ? tag.name : tag }}
-      </router-link>
-      <router-link
-        :to="`/blog/category/${
-          typeof post.category === 'object' ? post.category.name : post.category
-        }`"
-        class="px-2 py-1 text-xs rounded-full bg-green-100 text-github-green dark:bg-green-900 dark:text-green-300 hover:bg-green-200 dark:hover:bg-green-800 transition-colors"
-      >
-        {{
-          typeof post.category === "object" ? post.category.name : post.category
-        }}
-      </router-link>
+    <div class="flex justify-between items-center">
+      <div class="flex flex-wrap gap-2">
+        <router-link
+          :to="`/blog/category/${
+            typeof post.category === 'object'
+              ? post.category.name
+              : post.category
+          }`"
+          class="px-2 py-1 text-xs rounded-full bg-green-100 text-github-green dark:bg-green-900 dark:text-green-300 hover:bg-green-200 dark:hover:bg-green-800 transition-colors"
+        >
+          {{
+            typeof post.category === "object"
+              ? post.category.name
+              : post.category
+          }}
+        </router-link>
+        <router-link
+          v-for="tag in post.tags"
+          :key="typeof tag === 'object' ? tag._id : tag"
+          :to="`/blog/tag/${typeof tag === 'object' ? tag.name : tag}`"
+          class="px-2 py-1 text-xs rounded-full bg-blue-100 text-github-blue dark:bg-blue-900 dark:text-blue-300 hover:bg-blue-200 dark:hover:bg-blue-800 transition-colors"
+        >
+          {{ typeof tag === "object" ? tag.name : tag }}
+        </router-link>
+      </div>
+      <span class="text-github-gray text-xs italic">
+        发布于: {{ formattedDateTime }}
+      </span>
     </div>
   </div>
 </template>

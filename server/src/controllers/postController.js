@@ -51,7 +51,7 @@ exports.getPosts = async (req, res, next) => {
     const reqQuery = { ...req.query };
 
     // 要排除的字段
-    const removeFields = ["select", "sort", "page", "limit"];
+    const removeFields = ["select", "sort", "page", "limit", "populate"];
     removeFields.forEach((param) => delete reqQuery[param]);
 
     // 创建查询字符串
@@ -64,10 +64,16 @@ exports.getPosts = async (req, res, next) => {
     );
 
     // 查找文章
-    query = Post.find(JSON.parse(queryStr))
-      .populate("category", "name slug")
-      .populate("tags", "name slug")
-      .populate("author", "username");
+    query = Post.find(JSON.parse(queryStr));
+
+    // 总是填充分类和标签，确保返回完整信息
+    query = query.populate("category", "name slug");
+    query = query.populate("tags", "name slug");
+
+    // 只有当请求中包含populate=true时，填充作者信息
+    if (req.query.populate === "true") {
+      query = query.populate("author", "username");
+    }
 
     // 如果指定了 status，确保只有管理员可以查看草稿
     if (
@@ -412,18 +418,24 @@ exports.deletePost = async (req, res, next) => {
           const fileContainsId = file.includes(post._id.toString());
 
           // 2. 比较原始文件名 - 如果保存了原始文件名
-          const fileMatchesOriginalName = originalFileName && file === originalFileName;
+          const fileMatchesOriginalName =
+            originalFileName && file === originalFileName;
 
           // 3. 比较标题和内容 - 作为后备方案
           const fileMatchesTitle = file.toLowerCase().includes(postSlug);
           const contentSample = post.content?.substring(0, 100) || "";
-          const fileMatchesContent = contentSample && fileContent.includes(contentSample);
+          const fileMatchesContent =
+            contentSample && fileContent.includes(contentSample);
 
           // 只有在以下情况才删除文件:
           // - 文件名包含文章ID（最精确的匹配）
           // - 文件名与原始上传文件名匹配
           // - 在没有更好方法时：文件名包含标题slug且内容前100个字符匹配
-          if (fileContainsId || fileMatchesOriginalName || (fileMatchesTitle && fileMatchesContent)) {
+          if (
+            fileContainsId ||
+            fileMatchesOriginalName ||
+            (fileMatchesTitle && fileMatchesContent)
+          ) {
             fs.unlinkSync(filePath);
             console.log(`已删除文件: ${filePath}`);
             fileDeleted = true;
@@ -466,7 +478,7 @@ exports.deletePost = async (req, res, next) => {
       data: {},
       message: fileDeleted
         ? "文章及其相关文件已成功删除"
-        : "文章已从数据库中删除，但未找到关联文件"
+        : "文章已从数据库中删除，但未找到关联文件",
     });
   } catch (err) {
     next(err);

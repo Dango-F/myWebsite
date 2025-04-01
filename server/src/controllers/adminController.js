@@ -88,30 +88,34 @@ exports.getStats = async (req, res, next) => {
     const postsCount = await Post.countDocuments();
 
     // 获取实际使用的分类数量（只统计被文章使用的分类）
-    const usedCategories = await Post.distinct('category');
+    const usedCategories = await Post.distinct("category");
     const categoriesCount = usedCategories.length;
 
     // 获取实际使用的标签数量（只统计被文章使用的标签）
-    const usedTags = await Post.distinct('tags');
+    const usedTags = await Post.distinct("tags");
     const tagsCount = usedTags.length;
 
     // 获取实际使用的分类详细信息
     const allCategories = await Category.find({
-      _id: { $in: usedCategories }
-    }).select('name slug').sort('name');
+      _id: { $in: usedCategories },
+    })
+      .select("name slug")
+      .sort("name");
 
     // 获取实际使用的标签详细信息
     const allTags = await Tag.find({
-      _id: { $in: usedTags }
-    }).select('name slug').sort('name');
+      _id: { $in: usedTags },
+    })
+      .select("name slug")
+      .sort("name");
 
     // 最近的5篇文章
     const recentPosts = await Post.find()
-      .sort("-createdAt")
+      .sort("-date")
       .limit(5)
       .populate("category", "name")
       .populate("tags", "name")
-      .select("title slug status createdAt category tags");
+      .select("title slug status date createdAt category tags");
 
     res.status(200).json({
       success: true,
@@ -197,6 +201,7 @@ exports.uploadPost = async (req, res, next) => {
       .map((t) => t.trim())
       .filter((t) => t);
     const tagIds = [];
+    const tagDocs = [];
 
     for (const tagName of tagNames) {
       let tagDoc = await Tag.findOne({ name: tagName });
@@ -204,6 +209,7 @@ exports.uploadPost = async (req, res, next) => {
         tagDoc = await Tag.create({ name: tagName });
       }
       tagIds.push(tagDoc._id);
+      tagDocs.push(tagDoc);
     }
 
     // 生成slug
@@ -229,13 +235,18 @@ exports.uploadPost = async (req, res, next) => {
       file_name: newFileName, // 保存新文件名（包含时间戳）
       original_file_name: originalFileName, // 保存原始文件名
       author: new mongoose.Types.ObjectId("000000000000000000000000"), // 默认作者ID
+      date: new Date().toISOString(), // 确保文章日期是当前日期
+      createdAt: new Date(), // 明确设置创建时间
     });
 
     // 重命名文件，添加MongoDB ID
     try {
       // 创建新的文件名，包含文章ID
       const idBasedFileName = `${post._id}-${originalFileName}`;
-      const idBasedFilePath = path.join(path.dirname(filePath), idBasedFileName);
+      const idBasedFilePath = path.join(
+        path.dirname(filePath),
+        idBasedFileName
+      );
 
       // 重命名文件
       fs.renameSync(filePath, idBasedFilePath);
@@ -248,9 +259,26 @@ exports.uploadPost = async (req, res, next) => {
       // 如果重命名失败，不中断流程
     }
 
+    // 构建包含完整分类和标签信息的响应
+    const postResponse = post.toObject();
+
+    // 替换分类ID为完整的分类对象
+    postResponse.category = {
+      _id: categoryDoc._id,
+      name: categoryDoc.name,
+      slug: categoryDoc.slug,
+    };
+
+    // 替换标签ID数组为完整的标签对象数组
+    postResponse.tags = tagDocs.map((tag) => ({
+      _id: tag._id,
+      name: tag.name,
+      slug: tag.slug,
+    }));
+
     res.status(201).json({
       success: true,
-      data: post,
+      data: postResponse,
     });
   } catch (err) {
     // 清理上传的文件
@@ -336,13 +364,18 @@ exports.uploadPostsBatch = async (req, res, next) => {
           file_name: originalFileName, // 临时使用原始文件名
           original_file_name: originalFileName, // 保存原始文件名
           author: new mongoose.Types.ObjectId("000000000000000000000000"), // 默认作者ID
+          date: new Date().toISOString(), // 确保文章日期是当前日期
+          createdAt: new Date(), // 明确设置创建时间
         });
 
         // 重命名文件，添加MongoDB ID
         try {
           // 创建新的文件名，包含文章ID
           const idBasedFileName = `${post._id}-${originalFileName}`;
-          const idBasedFilePath = path.join(path.dirname(file.path), idBasedFileName);
+          const idBasedFilePath = path.join(
+            path.dirname(file.path),
+            idBasedFileName
+          );
 
           // 重命名文件
           fs.renameSync(file.path, idBasedFilePath);
@@ -427,11 +460,13 @@ exports.getPosts = async (req, res, next) => {
     const options = {
       page: parseInt(page, 10),
       limit: parseInt(limit, 10),
-      sort: { createdAt: -1 },
+      sort: { date: -1 }, // 优先按发布日期排序，而不是创建日期
       populate: [
         { path: "category", select: "name slug" },
         { path: "tags", select: "name slug" },
       ],
+      select:
+        "title content html_content status slug category tags date createdAt updatedAt file_name original_file_name author", // 确保包含date字段
     };
 
     const posts = await Post.paginate(query, options);
@@ -459,11 +494,8 @@ exports.updatePostStatus = async (req, res, next) => {
       });
     }
 
-    const post = await Post.findByIdAndUpdate(
-      req.params.id,
-      { status },
-      { new: true }
-    );
+    // 先获取文章
+    const post = await Post.findById(req.params.id);
 
     if (!post) {
       return res.status(404).json({
@@ -472,9 +504,35 @@ exports.updatePostStatus = async (req, res, next) => {
       });
     }
 
+    // 更新状态
+    post.status = status;
+
+    // 如果状态变为"已发布"，则更新发布日期
+    if (status === "published") {
+      const now = new Date();
+      post.date = now;
+      post.updatedAt = now;
+
+      // 确保明确记录状态变更
+      console.log(
+        `博客状态更新：ID ${post._id}, 标题 "${
+          post.title
+        }", 状态改为 ${status}, 更新时间 ${now.toISOString()}, date字段: ${post.date.toISOString()}`
+      );
+    }
+
+    // 保存更新
+    await post.save();
+
+    // 重新获取文章并填充关联信息，确保返回完整的文章对象
+    const updatedPost = await Post.findById(post._id)
+      .populate("category", "name slug")
+      .populate("tags", "name slug");
+
+    // 返回更新后的文章
     res.status(200).json({
       success: true,
-      data: post,
+      data: updatedPost,
     });
   } catch (err) {
     next(err);
@@ -521,18 +579,24 @@ exports.deletePost = async (req, res, next) => {
           const fileContainsId = file.includes(post._id.toString());
 
           // 2. 比较原始文件名 - 如果保存了原始文件名
-          const fileMatchesOriginalName = originalFileName && file === originalFileName;
+          const fileMatchesOriginalName =
+            originalFileName && file === originalFileName;
 
           // 3. 比较标题和内容 - 作为后备方案
           const fileMatchesTitle = file.toLowerCase().includes(postSlug);
           const contentSample = post.content?.substring(0, 100) || "";
-          const fileMatchesContent = contentSample && fileContent.includes(contentSample);
+          const fileMatchesContent =
+            contentSample && fileContent.includes(contentSample);
 
           // 只有在以下情况才删除文件:
           // - 文件名包含文章ID（最精确的匹配）
           // - 文件名与原始上传文件名匹配
           // - 在没有更好方法时：文件名包含标题slug且内容前100个字符匹配
-          if (fileContainsId || fileMatchesOriginalName || (fileMatchesTitle && fileMatchesContent)) {
+          if (
+            fileContainsId ||
+            fileMatchesOriginalName ||
+            (fileMatchesTitle && fileMatchesContent)
+          ) {
             fs.unlinkSync(filePath);
             console.log(`已删除文件: ${filePath}`);
             fileDeleted = true;
@@ -575,7 +639,7 @@ exports.deletePost = async (req, res, next) => {
       data: {},
       message: fileDeleted
         ? "文章及其相关文件已成功删除"
-        : "文章已从数据库中删除，但未找到关联文件"
+        : "文章已从数据库中删除，但未找到关联文件",
     });
   } catch (err) {
     next(err);
@@ -590,11 +654,13 @@ exports.syncFiles = async (req, res, next) => {
     const result = {
       removed: [],
       checked: 0,
-      errors: []
+      errors: [],
     };
 
     // 获取所有文章
-    const posts = await Post.find().populate("category", "name").populate("tags", "name");
+    const posts = await Post.find()
+      .populate("category", "name")
+      .populate("tags", "name");
     result.checked = posts.length;
 
     const uploadsDir = path.join(__dirname, "../../uploads");
@@ -607,8 +673,8 @@ exports.syncFiles = async (req, res, next) => {
         success: true,
         data: {
           message: "Markdown目录不存在，已创建新目录",
-          result
-        }
+          result,
+        },
       });
     }
 
@@ -626,7 +692,7 @@ exports.syncFiles = async (req, res, next) => {
         if (!stats.isFile()) continue;
 
         // 读取文件内容
-        const content = fs.readFileSync(filePath, 'utf8');
+        const content = fs.readFileSync(filePath, "utf8");
         filesContent[file] = content;
       } catch (error) {
         result.errors.push(`读取文件 ${file} 失败: ${error.message}`);
@@ -644,7 +710,8 @@ exports.syncFiles = async (req, res, next) => {
         const fileMatchesTitle = fileName.toLowerCase().includes(postSlug);
 
         // 文章内容的前100个字符是否与文件内容匹配
-        const fileMatchesContent = post.content && content.includes(post.content.substring(0, 100));
+        const fileMatchesContent =
+          post.content && content.includes(post.content.substring(0, 100));
 
         if (fileMatchesTitle || fileMatchesContent) {
           fileFound = true;
@@ -658,9 +725,9 @@ exports.syncFiles = async (req, res, next) => {
         result.removed.push({
           id: post._id,
           title: post.title,
-          category: post.category?.name || '未分类',
-          tags: post.tags?.map(tag => tag.name) || [],
-          createdAt: post.createdAt
+          category: post.category?.name || "未分类",
+          tags: post.tags?.map((tag) => tag.name) || [],
+          createdAt: post.createdAt,
         });
 
         // 删除数据库中的记录
@@ -672,8 +739,8 @@ exports.syncFiles = async (req, res, next) => {
       success: true,
       data: {
         message: `同步完成。检查了${result.checked}篇文章，移除了${result.removed.length}篇没有对应文件的文章。`,
-        result
-      }
+        result,
+      },
     });
   } catch (err) {
     next(err);
@@ -689,17 +756,18 @@ exports.syncCategories = async (req, res, next) => {
     const allCategories = await Category.find();
 
     // 2. 查找所有文章中使用的分类ID
-    const usedCategoryIds = await Post.distinct('category');
+    const usedCategoryIds = await Post.distinct("category");
 
     // 3. 确定需要删除的分类
     const categoriesToDelete = allCategories.filter(
-      category => !usedCategoryIds.some(id => id.toString() === category._id.toString())
+      (category) =>
+        !usedCategoryIds.some((id) => id.toString() === category._id.toString())
     );
 
     // 4. 删除未使用的分类
     const deleteResults = {
       total: categoriesToDelete.length,
-      deleted: []
+      deleted: [],
     };
 
     for (const category of categoriesToDelete) {
@@ -707,7 +775,7 @@ exports.syncCategories = async (req, res, next) => {
       deleteResults.deleted.push({
         name: category.name,
         slug: category.slug,
-        id: category._id
+        id: category._id,
       });
     }
 
@@ -715,8 +783,8 @@ exports.syncCategories = async (req, res, next) => {
       success: true,
       data: {
         message: `分类同步完成。已删除${deleteResults.total}个未使用的分类。`,
-        results: deleteResults
-      }
+        results: deleteResults,
+      },
     });
   } catch (err) {
     next(err);
@@ -733,13 +801,13 @@ exports.syncTags = async (req, res, next) => {
 
     // 2. 查找所有文章中使用的标签ID
     let usedTagIds = [];
-    const posts = await Post.find().select('tags');
+    const posts = await Post.find().select("tags");
 
     // 提取所有使用中的标签ID
-    posts.forEach(post => {
+    posts.forEach((post) => {
       if (post.tags && post.tags.length > 0) {
-        post.tags.forEach(tagId => {
-          if (!usedTagIds.some(id => id.toString() === tagId.toString())) {
+        post.tags.forEach((tagId) => {
+          if (!usedTagIds.some((id) => id.toString() === tagId.toString())) {
             usedTagIds.push(tagId);
           }
         });
@@ -748,13 +816,13 @@ exports.syncTags = async (req, res, next) => {
 
     // 3. 确定需要删除的标签
     const tagsToDelete = allTags.filter(
-      tag => !usedTagIds.some(id => id.toString() === tag._id.toString())
+      (tag) => !usedTagIds.some((id) => id.toString() === tag._id.toString())
     );
 
     // 4. 删除未使用的标签
     const deleteResults = {
       total: tagsToDelete.length,
-      deleted: []
+      deleted: [],
     };
 
     for (const tag of tagsToDelete) {
@@ -762,7 +830,7 @@ exports.syncTags = async (req, res, next) => {
       deleteResults.deleted.push({
         name: tag.name,
         slug: tag.slug,
-        id: tag._id
+        id: tag._id,
       });
     }
 
@@ -770,8 +838,8 @@ exports.syncTags = async (req, res, next) => {
       success: true,
       data: {
         message: `标签同步完成。已删除${deleteResults.total}个未使用的标签。`,
-        results: deleteResults
-      }
+        results: deleteResults,
+      },
     });
   } catch (err) {
     next(err);

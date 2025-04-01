@@ -112,7 +112,8 @@ export const useBlogStore = defineStore("blog", () => {
     const timeSinceLastRefresh = now - lastRefreshTime.value;
 
     // 如果已有数据且刷新间隔较短，直接使用现有数据
-    if (timeSinceLastRefresh < 5 * 60 * 1000) { // 延长到5分钟
+    if (timeSinceLastRefresh < 5 * 60 * 1000) {
+      // 延长到5分钟
       console.log("近期已刷新，使用现有数据");
       return posts.value;
     }
@@ -168,8 +169,10 @@ export const useBlogStore = defineStore("blog", () => {
         const lastApiCallTime = localStorage.getItem("blog_last_api_call");
         const minApiCallInterval = 30 * 1000; // 至少30秒间隔
 
-        if (!lastApiCallTime ||
-          Date.now() - parseInt(lastApiCallTime) > minApiCallInterval) {
+        if (
+          !lastApiCallTime ||
+          Date.now() - parseInt(lastApiCallTime) > minApiCallInterval
+        ) {
           shouldFetchFromServer = true;
         } else {
           console.log("API请求过于频繁，使用本地数据");
@@ -222,8 +225,57 @@ export const useBlogStore = defineStore("blog", () => {
       error.value = null;
 
       // 从API加载所有文章
-      const response = await axios.get(`${API_URL}/posts`);
+      const response = await axios.get(`${API_URL}/posts?populate=true`);
       posts.value = response.data.data;
+
+      // 若服务器没有返回完全展开的分类和标签对象，进行本地处理
+      posts.value = posts.value.map((post) => {
+        // 处理分类
+        if (post.category && typeof post.category === "string") {
+          // 尝试从其他文章中找到此分类的完整信息
+          const existingCategory = posts.value.find(
+            (p) =>
+              p.category &&
+              typeof p.category === "object" &&
+              p.category._id === post.category
+          )?.category;
+
+          if (existingCategory) {
+            post.category = { ...existingCategory };
+          } else {
+            // 如果找不到，创建一个临时对象
+            post.category = {
+              _id: post.category,
+              name: "加载中...", // 临时名称，实际上refresh后会被正确数据替换
+            };
+          }
+        }
+
+        // 处理标签
+        if (post.tags && Array.isArray(post.tags)) {
+          post.tags = post.tags.map((tag) => {
+            if (typeof tag === "string") {
+              // 尝试从其他文章中找到此标签的完整信息
+              const existingTag = posts.value
+                .flatMap((p) => (Array.isArray(p.tags) ? p.tags : []))
+                .find((t) => typeof t === "object" && t._id === tag);
+
+              if (existingTag) {
+                return { ...existingTag };
+              } else {
+                // 如果找不到，创建一个临时对象
+                return {
+                  _id: tag,
+                  name: "加载中...", // 临时名称
+                };
+              }
+            }
+            return tag;
+          });
+        }
+
+        return post;
+      });
 
       // 更新本地存储并明确指定通知其他标签页
       saveToLocalStorage(posts.value, true);
@@ -396,8 +448,39 @@ export const useBlogStore = defineStore("blog", () => {
 
       const newPost = response.data.data;
 
+      // 处理分类，将ID转换为对象
+      if (newPost.category && typeof newPost.category === "string") {
+        // 原分类为ID时，转换为对象格式
+        newPost.category = {
+          _id: newPost.category,
+          name: options.category || "未分类",
+        };
+      }
+
+      // 处理标签，将ID数组转换为对象数组
+      if (newPost.tags && Array.isArray(newPost.tags)) {
+        if (options.tags && Array.isArray(options.tags)) {
+          // 使用提供的标签名称创建对象
+          newPost.tags = newPost.tags.map((tagId, index) => {
+            // 如果index超出范围，使用ID作为名称
+            const tagName =
+              index < options.tags.length ? options.tags[index] : tagId;
+            return {
+              _id: tagId,
+              name: tagName,
+            };
+          });
+        } else {
+          // 如果没有提供标签名称，使用ID作为名称
+          newPost.tags = newPost.tags.map((tagId) => ({
+            _id: tagId,
+            name: tagId.toString().substring(0, 6) + "...", // 截断ID作为临时名称
+          }));
+        }
+      }
+
       // 更新本地状态
-      posts.value.push(newPost);
+      posts.value.unshift(newPost);
 
       // 更新本地缓存并通知（这是主动上传，应该通知）
       saveToLocalStorage(posts.value, true);
@@ -434,15 +517,16 @@ export const useBlogStore = defineStore("blog", () => {
                 id,
                 title,
                 content,
-                date: options.date || new Date().toISOString().split("T")[0],
+                date: new Date().toISOString().split("T")[0], // 总是使用当前日期
                 category: options.category || "未分类",
                 tags: options.tags || [],
                 status: "draft",
                 _isLocal: true, // 标记为本地创建，未同步
+                createdAt: new Date(), // 添加创建时间字段
               };
 
               // 添加到本地状态
-              posts.value.push(newPost);
+              posts.value.unshift(newPost);
 
               // 更新本地缓存
               saveToLocalStorage(posts.value, true);
@@ -516,4 +600,3 @@ export const useBlogStore = defineStore("blog", () => {
     markUpdate,
   };
 });
-

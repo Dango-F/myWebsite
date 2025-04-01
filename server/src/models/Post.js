@@ -57,6 +57,11 @@ const PostSchema = new mongoose.Schema(
       type: Date,
       default: Date.now,
     },
+    // 发布日期字段，用于前端显示博客发布时间
+    date: {
+      type: Date,
+      default: Date.now,
+    },
     author: {
       type: mongoose.Schema.ObjectId,
       ref: "User",
@@ -69,22 +74,27 @@ const PostSchema = new mongoose.Schema(
   }
 );
 
-// 自动生成 slug
+// 自动生成 slug 并更新相关字段
 PostSchema.pre("save", function (next) {
-  if (!this.isModified("title")) {
-    next();
-    return;
+  // 更新title时更新slug
+  if (this.isModified("title")) {
+    // 生成基础 slug
+    const baseSlug = slugify(this.title, { lower: true });
+
+    // 添加随机字符串和日期，确保唯一性
+    const randomStr = Math.random().toString(36).substring(2, 6);
+    const dateStr = new Date().toISOString().split("T")[0].replace(/-/g, "");
+
+    this.slug = `${baseSlug}-${dateStr}-${randomStr}`;
   }
 
-  // 生成基础 slug
-  const baseSlug = slugify(this.title, { lower: true });
-
-  // 添加随机字符串和日期，确保唯一性
-  const randomStr = Math.random().toString(36).substring(2, 6);
-  const dateStr = new Date().toISOString().split("T")[0].replace(/-/g, "");
-
-  this.slug = `${baseSlug}-${dateStr}-${randomStr}`;
+  // 更新updatedAt字段
   this.updatedAt = Date.now();
+
+  // 如果状态改为已发布，更新发布日期
+  if (this.isModified("status") && this.status === "published") {
+    this.date = new Date();
+  }
 
   next();
 });
