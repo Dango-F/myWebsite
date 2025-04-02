@@ -515,8 +515,7 @@ exports.updatePostStatus = async (req, res, next) => {
 
       // 确保明确记录状态变更
       console.log(
-        `博客状态更新：ID ${post._id}, 标题 "${
-          post.title
+        `博客状态更新：ID ${post._id}, 标题 "${post.title
         }", 状态改为 ${status}, 更新时间 ${now.toISOString()}, date字段: ${post.date.toISOString()}`
       );
     }
@@ -539,7 +538,7 @@ exports.updatePostStatus = async (req, res, next) => {
   }
 };
 
-// @desc    删除博客文章
+// @desc    删除单篇博客文章
 // @route   DELETE /api/admin/posts/:id
 // @access  Public
 exports.deletePost = async (req, res, next) => {
@@ -640,6 +639,127 @@ exports.deletePost = async (req, res, next) => {
       message: fileDeleted
         ? "文章及其相关文件已成功删除"
         : "文章已从数据库中删除，但未找到关联文件",
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// @desc    批量删除博客文章
+// @route   DELETE /api/admin/posts
+// @access  Public
+exports.deletePosts = async (req, res, next) => {
+  try {
+    const { ids } = req.body;
+
+    if (!ids || !Array.isArray(ids) || ids.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "请提供要删除的文章ID数组",
+      });
+    }
+
+    // 记录删除结果
+    const result = {
+      total: ids.length,
+      deleted: 0,
+      notFound: 0,
+      filesDeleted: 0,
+      errors: []
+    };
+
+    // 遍历删除每篇文章
+    for (const id of ids) {
+      try {
+        const post = await Post.findById(id);
+
+        if (!post) {
+          result.notFound++;
+          continue;
+        }
+
+        // 查找并删除与此博客关联的文件
+        const uploadsDir = path.join(__dirname, "../../uploads");
+        let fileDeleted = false;
+
+        // 尝试遍历markdown目录寻找特定文章的文件
+        const markdownDir = path.join(uploadsDir, "markdown");
+        if (fs.existsSync(markdownDir)) {
+          const files = fs.readdirSync(markdownDir);
+
+          // 为文章生成唯一标识
+          const postSlug = slugify(post.title, { lower: true });
+          // 尝试获取文章文件名，通常上传时会保留
+          const originalFileName = post.file_name || "";
+
+          for (const file of files) {
+            const filePath = path.join(markdownDir, file);
+
+            try {
+              // 读取文件内容
+              const fileContent = fs.readFileSync(filePath, "utf8");
+
+              // 文件匹配条件
+              const fileContainsId = file.includes(post._id.toString());
+              const fileMatchesOriginalName = originalFileName && file === originalFileName;
+              const fileMatchesTitle = file.toLowerCase().includes(postSlug);
+              const contentSample = post.content?.substring(0, 100) || "";
+              const fileMatchesContent = contentSample && fileContent.includes(contentSample);
+
+              if (
+                fileContainsId ||
+                fileMatchesOriginalName ||
+                (fileMatchesTitle && fileMatchesContent)
+              ) {
+                fs.unlinkSync(filePath);
+                console.log(`已删除文件: ${filePath}`);
+                fileDeleted = true;
+                result.filesDeleted++;
+                break;
+              }
+            } catch (error) {
+              console.error(`处理文件 ${filePath} 时出错:`, error);
+            }
+          }
+        }
+
+        // 删除与该文章相关的图片文件
+        const imagesDir = path.join(uploadsDir, "images");
+        if (fs.existsSync(imagesDir) && post.slug) {
+          const files = fs.readdirSync(imagesDir);
+
+          for (const file of files) {
+            const fileContainsId = file.includes(post._id.toString());
+            const fileMatchesSlug = post.slug && file.includes(post.slug);
+
+            if (fileContainsId || fileMatchesSlug) {
+              const filePath = path.join(imagesDir, file);
+              try {
+                fs.unlinkSync(filePath);
+                console.log(`已删除图片: ${filePath}`);
+                result.filesDeleted++;
+              } catch (error) {
+                console.error(`删除图片 ${filePath} 时出错:`, error);
+              }
+            }
+          }
+        }
+
+        // 删除数据库中的记录
+        await post.deleteOne();
+        result.deleted++;
+      } catch (error) {
+        result.errors.push({
+          id,
+          error: error.message
+        });
+      }
+    }
+
+    res.status(200).json({
+      success: true,
+      data: result,
+      message: `已成功删除${result.deleted}篇文章，清理了${result.filesDeleted}个相关文件`
     });
   } catch (err) {
     next(err);

@@ -7,6 +7,7 @@ const {
   getPosts,
   updatePostStatus,
   deletePost,
+  deletePosts,
   upload,
   uploadMultiple,
   syncFiles,
@@ -23,6 +24,7 @@ router.get("/stats", getStats);
 router.get("/posts", getPosts);
 router.put("/posts/:id/status", updatePostStatus);
 router.delete("/posts/:id", deletePost);
+router.delete("/posts", deletePosts);
 
 // 上传相关
 router.post("/upload-image", upload, uploadImage);
