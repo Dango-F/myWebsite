@@ -1,5 +1,6 @@
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
+import { storeToRefs } from 'pinia'
 import { useProjectStore } from '@/stores/project'
 import { useProfileStore } from '@/stores/profile'
 import ProfileSidebar from '@/components/ProfileSidebar.vue'
@@ -9,10 +10,12 @@ import axios from 'axios'
 
 const projectStore = useProjectStore()
 const profileStore = useProfileStore()
+const { profile } = storeToRefs(profileStore)
 const tagFilter = ref('')
 const languageFilter = ref('')
 const searchQuery = ref('')
-const githubUsername = ref(profileStore.profile.github_username)
+// 使用 ref 存储 GitHub 用户名,允许用户临时修改
+const githubUsername = ref(profile.value.github_username)
 const githubToken = ref('')
 const showTokenInput = ref(false)
 const hasConfiguredToken = ref(false)
@@ -48,8 +51,17 @@ const loadGitHubTokenFromServer = async () => {
             githubToken.value = response.data.data.github_token;
             hasConfiguredToken.value = true;
             isEditingToken.value = false;
-            // 立即加载GitHub仓库
-            await loadGitHubRepos();
+            
+            // 智能加载：只在必要时才调用 API
+            // 1. 没有缓存数据时
+            // 2. 缓存已过期（超过1小时）时
+            if (projectStore.projects.length === 0 || projectStore.shouldRefresh()) {
+                console.log('缓存无效或已过期，从 GitHub API 加载数据')
+                await loadGitHubRepos();
+            } else {
+                console.log('使用有效的缓存数据，最后更新于:', 
+                    new Date(parseInt(projectStore.lastFetchTime)).toLocaleString())
+            }
         }
     } catch (error) {
         console.error('加载GitHub Token失败:', error);
@@ -101,11 +113,7 @@ const cancelEditToken = () => {
     githubToken.value = '';
 };
 
-// 清除缓存并重新加载
-const clearCacheAndReload = async () => {
-    projectStore.clearCachedProjects()
-    await loadGitHubRepos()
-}
+// 清除缓存并重新加载（已移除，功能合并到刷新按钮）
 
 // 切换令牌输入框的显示/隐藏
 const toggleTokenInput = () => {
@@ -141,6 +149,13 @@ const filteredProjects = computed(() => {
 
     // 按星标降序排序
     return result.slice().sort((a, b) => b.stars - a.stars)
+})
+
+// 监听 profile.github_username 的变化,同步到本地 githubUsername
+watch(() => profile.value.github_username, (newUsername) => {
+    if (newUsername && newUsername !== githubUsername.value) {
+        githubUsername.value = newUsername
+    }
 })
 
 // 修改onMounted钩子
@@ -189,24 +204,13 @@ onMounted(async () => {
                 </div>
 
                 <!-- 最后更新时间 -->
-                <div class="flex justify-between items-center mb-4 text-sm">
-                    <div class="flex items-center text-github-gray">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24"
-                            stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                        <span>最后更新: {{ lastUpdateTime }}</span>
-                    </div>
-                    <button v-if="projectStore.lastFetchTime" @click="clearCacheAndReload"
-                        class="text-github-blue hover:underline flex items-center" title="清除缓存并重新加载">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24"
-                            stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                        </svg>
-                        <span>清除缓存</span>
-                    </button>
+                <div v-if="projectStore.lastFetchTime" class="text-sm text-github-gray mb-4 flex items-center">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24"
+                        stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <span>最后更新: {{ lastUpdateTime }}</span>
                 </div>
 
                 <!-- GitHub令牌输入框 -->

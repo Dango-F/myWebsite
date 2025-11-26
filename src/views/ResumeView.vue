@@ -1,18 +1,34 @@
 <script setup>
 import { useProfileStore } from '@/stores/profile'
+import { storeToRefs } from 'pinia'
 import ProfileSidebar from '@/components/ProfileSidebar.vue'
 import Timeline from '@/components/Timeline.vue'
+import TimelineEditor from '@/components/TimelineEditor.vue'
 import { useSidebarStore } from '@/stores/sidebar'
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 
 const profileStore = useProfileStore()
-const { profile } = profileStore
+const { profile } = storeToRefs(profileStore)
 
 const sidebarStore = useSidebarStore()
 const isCollapsed = computed(() => sidebarStore.isCollapsed)
 
+const showTimelineEditor = ref(false)
+
 function showContactInfo(type, value) {
     window.alert(`${type}: ${value}`);
+}
+
+const openTimelineEditor = () => {
+    showTimelineEditor.value = true
+}
+
+const closeTimelineEditor = () => {
+    showTimelineEditor.value = false
+}
+
+const onTimelineSaved = () => {
+    console.log('Timeline saved successfully')
 }
 </script>
 
@@ -76,9 +92,16 @@ function showContactInfo(type, value) {
                                         class="text-github-blue hover:underline">GitHub</a>
                                 </li>
                                 <li class="flex items-center text-github-gray">
-                                    <svg class="h-4 w-4 mr-2" viewBox="0 0 24 24" fill="currentColor">
+                                    <svg
+                                        class="h-4 w-4 mr-2"
+                                        viewBox="0 0 1024 1024"
+                                        fill="currentColor"
+                                        aria-hidden="true"
+                                        style="transform: scale(1.2)"
+                                    >
                                         <path
-                                            d="M21.395 15.035a39.548 39.548 0 0 0-.803-2.264l-1.079-2.695c.018-.236.028-.476.028-.715C19.541 4.403 16.205 1 12.03 1 7.856 1 4.52 4.402 4.52 9.361c0 .255.013.51.04.765a39.89 39.89 0 0 0-1.013 2.584 27.97 27.97 0 0 0-.86 2.33c-.696 2.348-.166 3.33.358 3.47.355.094 1.384-.286 2.312-1.426l.157-.195c.316 1.53 1.126 2.885 2.262 3.915a9.504 9.504 0 0 0 2.836 1.684 7.656 7.656 0 0 0 2.44.415l.62.002c3.15.023 6.058-1.664 7.535-4.303.737.867 1.462 1.275 1.736 1.19.52-.143 1.048-1.133.352-3.482zm-9.368 4.883l-.017-.006-.618.001a6.562 6.562 0 0 1-2.085-.354 8.408 8.408 0 0 1-2.509-1.492c-1.024-.927-1.73-2.089-1.97-3.235l-.159-.757-.598.485c-.28.228-.574.417-.868.566a5.815 5.815 0 0 1-.287.132 5.889 5.889 0 0 1 .157-.426c.071-.174.158-.344.262-.505.169-.261.382-.608.63-1.036a29.698 29.698 0 0 1 1.457-2.385c.31-2.086.8-3.694 1.407-4.315.197-.2.382-.299.548-.299.153 0 .261.059.35.106.239.126.404.328.493.603l.013.039.034.022c.107.07.319.208.514.462.156.204.324.496.324 1.08 0 .561-.223.845-.529 1.128-.112.104-.233.186-.235.187l-.307.186.352.043c.05.006.101.018.148.35.107.039.224.09.33.175.096.078.192.182.253.357l.23.066.058.036a.776.776 0 0 1 .112.082c.078.063.131.116.131.308l-.005.086.017.085a1.606 1.606 0 0 1-.009 1.002l-.069.18.147.126c.145.125.24.282.296.447.113.329.044.747-.061 1.039l-.054.15.117.104c.283.254.432.637.395 1.016a1.3 1.3 0 0 1-.392.845l-.073.067.003.099c0 .756-.127 1.985-.3 2.365-.465 1.675-2.493 3.165-5.196 3.165zm7.063-3.158c-.327.266-.656.467-.937.585l.042-.333c.042-.336-.024-.671-.184-.949.07-.28.113-.55.125-.81.161-.152.315-.36.397-.631.109-.365.09-.705.027-.918a1.684 1.684 0 0 0-.074-.217c.028-.134.05-.273.069-.414.069-.073.16-.195.24-.367.271.598.616 1.395.912 2.129l.7.173c.714 1.82.79 2.5.73 2.632-.023.048-.097.12-.397.12z" />
+                                            d="M824.8 613.2c-16-51.4-34.4-94.6-62.7-165.3C766.5 262.2 689.3 112 511.5 112 331.7 112 256.2 265.2 261 447.9c-28.4 70.8-46.7 113.7-62.7 165.3-34 109.5-23 154.8-14.6 155.8 18 2.2 70.1-82.4 70.1-82.4 0 49 25.2 112.9 79.8 159-26.4 8.1-85.7 29.9-71.6 53.8 11.4 19.3 196.2 12.3 249.5 6.3 53.3 6 238.1 13 249.5-6.3 14.1-23.8-45.3-45.7-71.6-53.8 54.6-46.2 79.8-110.1 79.8-159 0 0 52.1 84.6 70.1 82.4 8.5-1.1 19.5-46.4-14.5-155.8z"
+                                        />
                                     </svg>
                                     <a href="#" class="text-github-blue hover:underline"
                                         @click.prevent="showContactInfo('QQ', profile.qq)">QQ</a>
@@ -114,8 +137,23 @@ function showContactInfo(type, value) {
                 </section>
 
                 <!-- 时间轴 -->
-                <Timeline />
+                <div class="relative">
+                    <div class="flex justify-between items-center mb-4">
+                        <h2 class="text-xl font-semibold">个人经历</h2>
+                        <button @click="openTimelineEditor"
+                            class="px-4 py-2 bg-github-blue text-white rounded-md hover:bg-blue-700 flex items-center gap-2">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                            </svg>
+                            编辑时间轴
+                        </button>
+                    </div>
+                    <Timeline />
+                </div>
             </div>
         </div>
     </div>
+
+    <!-- 时间轴编辑器 -->
+    <TimelineEditor v-if="showTimelineEditor" @close="closeTimelineEditor" @saved="onTimelineSaved" />
 </template>

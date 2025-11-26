@@ -2,42 +2,30 @@
 import { RouterView, useRouter } from "vue-router";
 import TheHeader from "@/components/TheHeader.vue";
 import NightSky from "@/components/NightSky.vue";
-import { useBlogStore } from "@/stores/blog";
 import { onMounted, onUnmounted, watch } from "vue";
+import { useProfileStore } from "@/stores/profile";
 
-// 获取博客Store和路由
-const blogStore = useBlogStore();
 const router = useRouter();
+const profileStore = useProfileStore();
 
 // 设置自动刷新间隔（5分钟）
 const REFRESH_INTERVAL = 5 * 60 * 1000;
 let autoRefreshTimer = null;
 
-// 自动刷新函数，只在博客页面激活
+// 自动刷新函数（博客功能已移除，定时器逻辑保留为空）
 const startAutoRefresh = () => {
   // 清除可能存在的定时器
   if (autoRefreshTimer) {
     clearInterval(autoRefreshTimer);
     autoRefreshTimer = null;
   }
-
-  // 只有当用户正在查看博客相关页面时才启动定时器
-  if (router.currentRoute.value.path.startsWith("/blog")) {
-    console.log("启动博客数据自动刷新定时器");
-    autoRefreshTimer = setInterval(() => {
-      console.log("定时刷新博客数据...");
-      blogStore.smartRefresh(); // 使用智能刷新，只在必要时更新
-    }, REFRESH_INTERVAL);
-  }
 };
 
-// 监听路由变化，只在博客页面启动定时器
+// 监听路由变化（博客功能已移除，不再启动博客刷新定时器）
 watch(
   () => router.currentRoute.value.path,
   (newPath) => {
-    if (newPath.startsWith("/blog")) {
-      startAutoRefresh();
-    } else if (autoRefreshTimer) {
+    if (autoRefreshTimer) {
       console.log("离开博客页面，停止自动刷新");
       clearInterval(autoRefreshTimer);
       autoRefreshTimer = null;
@@ -46,9 +34,11 @@ watch(
   { immediate: true }
 );
 
-// 组件挂载时启动自动刷新
-onMounted(() => {
+// 组件挂载时启动自动刷新并加载Profile
+onMounted(async () => {
   startAutoRefresh();
+  // 从后端加载用户配置
+  await profileStore.fetchProfile();
 });
 
 // 组件卸载时清除定时器
@@ -61,7 +51,9 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="min-h-screen bg-[var(--color-bg-primary)] text-[var(--color-text-primary)] relative dark-gradient">
+  <div
+    class="min-h-screen bg-[var(--color-bg-primary)] text-[var(--color-text-primary)] relative dark-gradient"
+  >
     <NightSky />
     <div class="relative z-10">
       <TheHeader />
@@ -128,11 +120,13 @@ onUnmounted(() => {
 
 /* 暗色模式渐变背景 */
 .dark .dark-gradient {
-  background-image: linear-gradient(to bottom,
-      rgba(0, 0, 15, 0.4) 0%,
-      rgba(18, 18, 36, 0.2) 40%,
-      rgba(30, 30, 60, 0.1) 70%,
-      rgba(200, 200, 255, 0.15) 100%);
+  background-image: linear-gradient(
+    to bottom,
+    rgba(0, 0, 15, 0.4) 0%,
+    rgba(18, 18, 36, 0.2) 40%,
+    rgba(30, 30, 60, 0.1) 70%,
+    rgba(200, 200, 255, 0.15) 100%
+  );
   background-attachment: fixed;
   background-size: 100% 100vh;
   position: relative;
@@ -145,9 +139,11 @@ onUnmounted(() => {
   left: 0;
   right: 0;
   bottom: 0;
-  background: radial-gradient(circle at center bottom,
-      rgba(180, 180, 255, 0.05) 0%,
-      rgba(30, 30, 60, 0) 60%);
+  background: radial-gradient(
+    circle at center bottom,
+    rgba(180, 180, 255, 0.05) 0%,
+    rgba(30, 30, 60, 0) 60%
+  );
   z-index: 0;
   pointer-events: none;
 }

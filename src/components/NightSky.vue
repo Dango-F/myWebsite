@@ -60,9 +60,9 @@ const initStars = (count = 600) => {
       baseRadius: radius,
       alpha: random(0.4, 0.9),
       color,
-      blinkingRate: random(0.0003, 0.002), // 大幅减慢闪烁速度
+      blinkingRate: random(0.00008, 0.0005), // 进一步减慢闪烁速度
       blinkingDirection: Math.random() > 0.5 ? 1 : -1,
-      pulsatingSpeed: random(0.001, 0.005), // 减慢脉动速度
+      pulsatingSpeed: random(0.0003, 0.0015), // 进一步减慢脉动速度
       pulsatingDirection: Math.random() > 0.5 ? 1 : -1,
       twinkle: Math.random() > 0.6,
     };
@@ -211,17 +211,20 @@ const drawMeteors = () => {
     // 设置渐变色
     gradient.addColorStop(
       0,
-      `rgba(${head.r}, ${head.g}, ${head.b}, ${meteor.alpha * meteor.brightness
+      `rgba(${head.r}, ${head.g}, ${head.b}, ${
+        meteor.alpha * meteor.brightness
       })`
     );
     gradient.addColorStop(
       0.1,
-      `rgba(${head.r}, ${head.g}, ${head.b}, ${meteor.alpha * meteor.brightness * 0.8
+      `rgba(${head.r}, ${head.g}, ${head.b}, ${
+        meteor.alpha * meteor.brightness * 0.8
       })`
     );
     gradient.addColorStop(
       0.3,
-      `rgba(${tail.r}, ${tail.g}, ${tail.b}, ${meteor.alpha * meteor.brightness * 0.6
+      `rgba(${tail.r}, ${tail.g}, ${tail.b}, ${
+        meteor.alpha * meteor.brightness * 0.6
       })`
     );
     gradient.addColorStop(1, `rgba(${tail.r}, ${tail.g}, ${tail.b}, 0)`);
@@ -268,7 +271,7 @@ const drawMeteors = () => {
 // 更新星星
 const updateStars = (deltaTime) => {
   // 限制deltaTime避免过大的步长
-  const adjustedDelta = Math.min(deltaTime, 30);
+  const adjustedDelta = Math.min(deltaTime, 16); // 限制每帧步长，进一步平滑闪烁
 
   stars.value.forEach((star) => {
     // 闪烁效果，减慢速度

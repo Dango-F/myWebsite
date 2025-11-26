@@ -25,3 +25,6 @@ build
 .classpath
 *.launch
 .settings/
+
+# 环境文件
+.env

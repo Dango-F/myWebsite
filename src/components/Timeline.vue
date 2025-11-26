@@ -1,14 +1,13 @@
 <script setup>
 import { useProfileStore } from "@/stores/profile";
+import { storeToRefs } from "pinia";
 
 const profileStore = useProfileStore();
-const { timeline } = profileStore;
+const { timeline } = storeToRefs(profileStore);
 </script>
 
 <template>
   <div class="py-4">
-    <h2 class="text-xl font-semibold mb-8">个人经历</h2>
-
     <div class="timeline-container">
       <div v-for="item in timeline" :key="item.id" class="timeline-item">
         <!-- 时间节点 -->

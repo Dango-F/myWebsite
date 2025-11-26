@@ -5,13 +5,10 @@ const dotenv = require("dotenv");
 const path = require("path");
 
 // 路由导入
-const postRoutes = require("./routes/posts");
-const categoryRoutes = require("./routes/categories");
-const tagRoutes = require("./routes/tags");
 const authRoutes = require("./routes/auth");
-const adminRoutes = require("./routes/admin");
 const todoRoutes = require("./routes/todos");
 const configRoutes = require("./routes/config");
+const profileRoutes = require("./routes/profile");
 
 // 加载环境变量
 dotenv.config();
@@ -28,13 +25,10 @@ app.use(express.urlencoded({ extended: true }));
 app.use("/uploads", express.static(path.join(__dirname, "../uploads")));
 
 // 使用路由
-app.use("/api/posts", postRoutes);
-app.use("/api/categories", categoryRoutes);
-app.use("/api/tags", tagRoutes);
 app.use("/api/auth", authRoutes);
-app.use("/api/admin", adminRoutes);
 app.use("/api/todos", todoRoutes);
 app.use("/api/config", configRoutes);
+app.use("/api/profile", profileRoutes);
 
 // 连接到数据库
 mongoose
