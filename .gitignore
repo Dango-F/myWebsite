@@ -28,3 +28,6 @@ build
 
 # 环境文件
 .env
+
+# docs文件
+docs/

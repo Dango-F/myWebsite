@@ -2,8 +2,8 @@
 
 一个基于 Vue 3、Vite 和 Tailwind CSS 构建的现代化个人博客平台，采用 GitHub 风格设计。提供博客发布、项目展示、个人简历和待办事项管理等功能。支持亮色和暗色模式，响应式设计适配各种设备。
 
-![屏幕截图](./screenshot1.png)
-![屏幕截图](./screenshot2.png)
+![屏幕截图](./screenshot/screenshot1.png)
+![屏幕截图](./screenshot/screenshot2.png)
 
 ## ✨ 功能特性
 
