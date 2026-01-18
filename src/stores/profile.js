@@ -15,6 +15,10 @@ export const useProfileStore = defineStore('profile', () => {
         website: 'https://zhangsan.dev',
         company: '中国科学院大学',
         position: 'UCAS-ES-计算机应用技术',
+        status: {
+            text: '正在编码...',
+            emoji: '💻'
+        },
         skills: ['JavaScript', 'Vue', 'React', 'Node.js', 'TypeScript', 'CSS', 'HTML'],
         github_username: 'Dango-F'
     })
@@ -67,6 +71,7 @@ export const useProfileStore = defineStore('profile', () => {
                 website: data.website,
                 company: data.company,
                 position: data.position,
+                status: data.status || { text: '正在编码...', emoji: '💻' },
                 skills: data.skills,
                 github_username: data.github_username
             }
@@ -97,6 +102,7 @@ export const useProfileStore = defineStore('profile', () => {
                 website: data.website,
                 company: data.company,
                 position: data.position,
+                status: data.status || { text: '正在编码...', emoji: '💻' },
                 skills: data.skills,
                 github_username: data.github_username
             }
@@ -162,6 +168,7 @@ export const useProfileStore = defineStore('profile', () => {
                 website: data.website,
                 company: data.company,
                 position: data.position,
+                status: data.status || { text: '正在编码...', emoji: '💻' },
                 skills: data.skills,
                 github_username: data.github_username
             }

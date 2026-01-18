@@ -38,11 +38,11 @@ const ProfileSchema = new mongoose.Schema(
         },
         bio: {
             type: String,
-            default: "前端开发者 | AI 爱好者 | 开源贡献者",
+            default: "空间智能 | 具身智能",
         },
         location: {
             type: String,
-            default: "安徽-宣城",
+            default: "北京-怀柔",
         },
         email: {
             type: String,
@@ -67,11 +67,21 @@ const ProfileSchema = new mongoose.Schema(
         },
         company: {
             type: String,
-            default: "HFUT",
+            default: "中国科学院大学",
         },
         position: {
             type: String,
-            default: "HFUT-CS-2022",
+            default: "UCAS-ES-计算机应用技术",
+        },
+        status: {
+            text: {
+                type: String,
+                default: "正在编码...",
+            },
+            emoji: {
+                type: String,
+                default: "💻",
+            },
         },
         skills: {
             type: [String],

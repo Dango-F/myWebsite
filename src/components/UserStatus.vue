@@ -1,17 +1,43 @@
 <script setup>
-import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
-import { useStatusStore } from '@/stores/status'
+import { ref, computed, onMounted, onBeforeUnmount, watch } from 'vue'
+import { storeToRefs } from 'pinia'
+import { useProfileStore } from '@/stores/profile'
 
-const statusStore = useStatusStore()
+const profileStore = useProfileStore()
+const { profile } = storeToRefs(profileStore)
+
+const emojiList = [
+    { emoji: '😊', name: '微笑' },
+    { emoji: '😂', name: '笑哭' },
+    { emoji: '😎', name: '酷' },
+    { emoji: '🤔', name: '思考' },
+    { emoji: '😴', name: '睡觉' },
+    { emoji: '😢', name: '哭泣' },
+    { emoji: '🎉', name: '庆祝' },
+    { emoji: '🤒', name: '生病' },
+    { emoji: '💻', name: '编程' },
+    { emoji: '🎮', name: '游戏' },
+    { emoji: '📚', name: '阅读' },
+    { emoji: '🍽️', name: '吃饭' },
+    { emoji: '☕', name: '喝咖啡' },
+    { emoji: '🏃', name: '跑步' },
+    { emoji: '💼', name: '工作' },
+    { emoji: '🎵', name: '听音乐' }
+]
 const isEditing = ref(false)
 const statusText = ref('')
 const searchQuery = ref('')
 const selectedEmoji = ref('')
 
+const syncFromProfile = () => {
+    const current = profile.value?.status || { text: '正在编码...', emoji: '💻' }
+    statusText.value = current.text
+    selectedEmoji.value = current.emoji
+}
+
 // 初始化状态
 onMounted(() => {
-    statusText.value = statusStore.status.text
-    selectedEmoji.value = statusStore.status.emoji
+    syncFromProfile()
 
     // 添加点击事件监听器，用于在点击组件外部时关闭编辑模式
     document.addEventListener('click', handleClickOutside)
@@ -37,26 +63,27 @@ const stopPropagation = (event) => {
 
 // 根据搜索过滤表情列表
 const filteredEmojis = computed(() => {
-    if (!searchQuery.value.trim()) return statusStore.emojiList
+    if (!searchQuery.value.trim()) return emojiList
     const query = searchQuery.value.toLowerCase()
-    return statusStore.emojiList.filter(
+    return emojiList.filter(
         emoji => emoji.name.toLowerCase().includes(query)
     )
 })
 
 // 保存状态
-const saveStatus = () => {
-    statusStore.updateStatus({
-        text: statusText.value || '正在编码...',
-        emoji: selectedEmoji.value
+const saveStatus = async () => {
+    await profileStore.updateProfile({
+        status: {
+            text: statusText.value || '正在编码...',
+            emoji: selectedEmoji.value
+        }
     })
     isEditing.value = false
 }
 
 // 取消编辑
 const cancelEdit = () => {
-    statusText.value = statusStore.status.text
-    selectedEmoji.value = statusStore.status.emoji
+    syncFromProfile()
     isEditing.value = false
 }
 
@@ -71,6 +98,16 @@ const startEdit = (event) => {
 const selectEmoji = (emoji) => {
     selectedEmoji.value = emoji
 }
+
+watch(
+    () => profile.value?.status,
+    () => {
+        if (!isEditing.value) {
+            syncFromProfile()
+        }
+    },
+    { deep: true, immediate: true }
+)
 </script>
 
 <template>
@@ -79,8 +116,8 @@ const selectEmoji = (emoji) => {
         <div class="flex items-center cursor-pointer hover:bg-[var(--color-bg-secondary)] transition-colors rounded-md px-2 py-1"
             @click="startEdit">
             <div class="flex items-center gap-1">
-                <span class="text-base" aria-hidden="true">{{ statusStore.status.emoji }}</span>
-                <span class="text-[var(--color-text-primary)] text-sm">{{ statusStore.status.text }}</span>
+                <span class="text-base" aria-hidden="true">{{ profile.status?.emoji }}</span>
+                <span class="text-[var(--color-text-primary)] text-sm">{{ profile.status?.text }}</span>
             </div>
         </div>
 

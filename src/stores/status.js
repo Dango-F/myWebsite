@@ -22,6 +22,9 @@ export const useStatusStore = defineStore('status', () => {
         { emoji: '🎧', name: '听音乐' }
     ]
 
+    // 保留该 store 作为本地缓存方案的备选实现。
+    // 当前页面实际读写的是 Profile（后端持久化）。
+
     // 保存在本地存储中的键名
     const STORAGE_KEY = 'user_status'
 
@@ -49,7 +52,7 @@ export const useStatusStore = defineStore('status', () => {
     // 更新状态
     const updateStatus = (newStatus) => {
         status.value = { ...newStatus }
-        // 保存到本地存储
+        // 保存到本地存储（当前未被组件使用）
         if (typeof window !== 'undefined' && typeof localStorage !== 'undefined') {
             localStorage.setItem(STORAGE_KEY, JSON.stringify(status.value))
         }
