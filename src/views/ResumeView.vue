@@ -71,10 +71,11 @@ const onTimelineSaved = () => {
                                     <span>{{ profile.location }}</span>
                                 </li>
                                 <li class="flex items-center text-github-gray">
-                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" fill="none"
-                                        viewBox="0 0 24 24" stroke="currentColor">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                            d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2"
+                                        viewBox="0 0 1024 1024" fill="currentColor">
+                                        <path
+                                            d="M485.2 661.4c4.3 2 9.3 2 13.6 0l232-110V709c0 6.1-3.4 11.6-8.8 14.3L499.1 835.6c-4.5 2.3-9.8 2.3-14.2 0L202.7 723.4c-5.4-2.7-8.8-8.2-8.8-14.3V551.4l291.3 110z m344.3-289.8v436.1c0 16.4-13.3 29.7-29.7 29.7s-29.7-13.3-29.7-29.7V383.8l-39.4 9.2v109.4L492 615.6 193.9 502.4v-113l-77.3-24.9c-6.1-2.4-10.2-8.3-10.2-14.9s4-12.5 10.2-14.9L486.1 187c3.8-1.5 8-1.5 11.7 0l369.6 147.7c6.1 2.4 10.1 8.3 10.1 14.9s-4 12.5-10.1 14.9l-37.9 7.1z"
+                                        />
                                     </svg>
                                     <span>{{ profile.company }}</span>
                                 </li>

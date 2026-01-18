@@ -6,15 +6,15 @@ export const useProfileStore = defineStore('profile', () => {
     const profile = ref({
         name: 'YukiDango',
         avatar: 'https://avatars.githubusercontent.com/u/109727326?s=400&u=3a05d82d993d049bd7c03c5bdac0408eea8184f3&v=4',
-        bio: '前端开发者 | AI 爱好者 | 开源贡献者',
-        location: '安徽-宣城',
+        bio: '空间智能 | 具身智能',
+        location: '北京-怀柔',
         email: '1847539781@qq.com',
         github: 'https://github.com/Dango-F',
         qq: '1847539781',
         wechat: 'fan15890094838',
         website: 'https://zhangsan.dev',
-        company: 'HFUT',
-        position: 'HFUT-CS-2022',
+        company: '中国科学院大学',
+        position: 'UCAS-ES-计算机应用技术',
         skills: ['JavaScript', 'Vue', 'React', 'Node.js', 'TypeScript', 'CSS', 'HTML'],
         github_username: 'Dango-F'
     })
