@@ -223,7 +223,7 @@ const cancel = () => {
                         <label class="block text-sm font-medium mb-2">技能标签</label>
                         <div class="flex flex-wrap gap-2 mb-2">
                             <span v-for="(skill, index) in formData.skills" :key="index"
-                                class="px-3 py-1 text-sm rounded-full bg-blue-100 text-github-blue dark:bg-blue-900 dark:text-blue-300 flex items-center gap-2 cursor-default select-none"
+                                class="px-3 py-1 text-sm rounded-full bg-blue-100 text-github-blue dark:bg-blue-900 dark:text-blue-300 hover:bg-blue-200 dark:hover:bg-blue-800 transition-colors flex items-center gap-2 cursor-pointer select-none"
                                 :class="dragIndex === index ? 'opacity-60' : ''"
                                 draggable="true"
                                 @dragstart="onDragStart($event, index)"

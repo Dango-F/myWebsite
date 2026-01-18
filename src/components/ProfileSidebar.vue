@@ -14,6 +14,7 @@ const editModeStore = useEditModeStore();
 const isCollapsed = computed(() => sidebarStore.isCollapsed);
 
 const showProfileEditor = ref(false);
+const dragIndex = ref(null);
 
 const toggleSidebar = () => {
   sidebarStore.toggleSidebar();
@@ -34,6 +35,38 @@ const onProfileSaved = () => {
 
 const alert = (message) => {
   window.alert(message);
+};
+
+const onDragStart = (event, index) => {
+  dragIndex.value = index;
+  if (event?.dataTransfer) {
+    event.dataTransfer.effectAllowed = "move";
+    event.dataTransfer.setData("text/plain", String(index));
+  }
+};
+
+const onDrop = async (index) => {
+  if (dragIndex.value === null) return;
+  const fromIndex = dragIndex.value;
+  dragIndex.value = null;
+  if (fromIndex === index) return;
+
+  const previousSkills = [...profile.value.skills];
+  const nextSkills = [...previousSkills];
+  const [moved] = nextSkills.splice(fromIndex, 1);
+  nextSkills.splice(index, 0, moved);
+  profile.value.skills = nextSkills;
+
+  try {
+    await profileStore.updateSkills(nextSkills);
+  } catch (error) {
+    profile.value.skills = previousSkills;
+    console.error(error);
+  }
+};
+
+const onDragEnd = () => {
+  dragIndex.value = null;
 };
 </script>
 
@@ -215,9 +248,15 @@ const alert = (message) => {
           </h3>
           <div class="flex flex-wrap gap-2">
             <span
-              v-for="skill in profile.skills"
+              v-for="(skill, index) in profile.skills"
               :key="skill"
-              class="px-2 py-1 text-xs rounded-full bg-[var(--color-bg-secondary)] border border-[var(--color-border)] text-[var(--color-text-primary)] hover:bg-[var(--color-bg-tertiary)] transition-colors"
+              class="px-2 py-1 text-xs rounded-full bg-blue-100 text-github-blue dark:bg-blue-900 dark:text-blue-300 hover:bg-blue-200 dark:hover:bg-blue-800 transition-colors cursor-pointer select-none"
+              :class="dragIndex === index ? 'opacity-60' : ''"
+              draggable="true"
+              @dragstart="onDragStart($event, index)"
+              @dragover.prevent
+              @drop="onDrop(index)"
+              @dragend="onDragEnd"
             >
               {{ skill }}
             </span>
