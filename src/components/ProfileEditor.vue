@@ -25,6 +25,7 @@ const formData = ref({
 const newSkill = ref('')
 const isSaving = ref(false)
 const saveMessage = ref({ show: false, text: '', isError: false })
+const dragIndex = ref(null)
 
 // 初始化表单数据
 onMounted(() => {
@@ -56,6 +57,30 @@ const addSkill = () => {
 // 删除技能
 const removeSkill = (index) => {
     formData.value.skills.splice(index, 1)
+}
+
+const moveSkill = (fromIndex, toIndex) => {
+    if (fromIndex === toIndex) return
+    const skills = formData.value.skills
+    const [moved] = skills.splice(fromIndex, 1)
+    skills.splice(toIndex, 0, moved)
+}
+
+const onDragStart = (event, index) => {
+    dragIndex.value = index
+    if (event?.dataTransfer) {
+        event.dataTransfer.effectAllowed = 'move'
+    }
+}
+
+const onDrop = (index) => {
+    if (dragIndex.value === null) return
+    moveSkill(dragIndex.value, index)
+    dragIndex.value = null
+}
+
+const onDragEnd = () => {
+    dragIndex.value = null
 }
 
 // 保存更改
@@ -198,7 +223,13 @@ const cancel = () => {
                         <label class="block text-sm font-medium mb-2">技能标签</label>
                         <div class="flex flex-wrap gap-2 mb-2">
                             <span v-for="(skill, index) in formData.skills" :key="index"
-                                class="px-3 py-1 text-sm rounded-full bg-blue-100 text-github-blue dark:bg-blue-900 dark:text-blue-300 flex items-center gap-2">
+                                class="px-3 py-1 text-sm rounded-full bg-blue-100 text-github-blue dark:bg-blue-900 dark:text-blue-300 flex items-center gap-2 cursor-default select-none"
+                                :class="dragIndex === index ? 'opacity-60' : ''"
+                                draggable="true"
+                                @dragstart="onDragStart($event, index)"
+                                @dragover.prevent
+                                @drop="onDrop(index)"
+                                @dragend="onDragEnd">
                                 {{ skill }}
                                 <button type="button" @click="removeSkill(index)" class="text-red-500 hover:text-red-700">
                                     <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
