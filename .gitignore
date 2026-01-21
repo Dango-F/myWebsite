@@ -1,5 +1,3 @@
-*.txt
-
 # 依赖
 node_modules
 .pnp
