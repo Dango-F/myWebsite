@@ -27,7 +27,7 @@ build
 .settings/
 
 # 环境文件
-.env
+server/.env
 
 # docs文件
 docs/
