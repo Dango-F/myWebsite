@@ -3,6 +3,7 @@ import { ref, computed, onMounted, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useProjectStore } from '@/stores/project'
 import { useProfileStore } from '@/stores/profile'
+import { useAuthStore } from '@/stores/auth'
 import ProfileSidebar from '@/components/ProfileSidebar.vue'
 import RepoCard from '@/components/RepoCard.vue'
 import { useSidebarStore } from '@/stores/sidebar'
@@ -10,6 +11,7 @@ import axios from 'axios'
 
 const projectStore = useProjectStore()
 const profileStore = useProfileStore()
+const authStore = useAuthStore()
 const { profile } = storeToRefs(profileStore)
 const tagFilter = ref('')
 const languageFilter = ref('')
@@ -184,7 +186,7 @@ onMounted(async () => {
                         <input v-model="githubUsername" type="text" placeholder="GitHub用户名"
                             class="p-2 border border-[var(--color-border)] rounded-md bg-[var(--color-bg-primary)]" />
 
-                        <button @click="toggleTokenInput" type="button"
+                        <button v-if="authStore.isAuthenticated" @click="toggleTokenInput" type="button"
                             class="px-2 py-2 bg-[var(--color-bg-secondary)] text-[var(--color-text-primary)] rounded-md border border-[var(--color-border)] hover:bg-gray-200 dark:hover:bg-gray-800"
                             :title="hasConfiguredToken ? 'GitHub访问令牌已配置（点击修改）' : 'GitHub访问令牌（未配置）'">
                             <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24"

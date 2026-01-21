@@ -1,5 +1,6 @@
 const express = require("express");
 const router = express.Router();
+const { protect } = require("../middlewares/auth");
 const {
     getProfile,
     updateProfile,
@@ -9,12 +10,12 @@ const {
 } = require("../controllers/profileController");
 
 // Profile CRUD routes
-router.route("/").get(getProfile).put(updateProfile);
+router.route("/").get(getProfile).put(protect, updateProfile);
 
-router.route("/timeline").put(updateTimeline);
+router.route("/timeline").put(protect, updateTimeline);
 
-router.route("/skills").put(updateSkills);
+router.route("/skills").put(protect, updateSkills);
 
-router.route("/reset").post(resetProfile);
+router.route("/reset").post(protect, resetProfile);
 
 module.exports = router;

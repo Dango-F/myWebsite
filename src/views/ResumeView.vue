@@ -1,5 +1,6 @@
 <script setup>
 import { useProfileStore } from '@/stores/profile'
+import { useAuthStore } from '@/stores/auth'
 import { storeToRefs } from 'pinia'
 import ProfileSidebar from '@/components/ProfileSidebar.vue'
 import Timeline from '@/components/Timeline.vue'
@@ -8,6 +9,7 @@ import { useSidebarStore } from '@/stores/sidebar'
 import { computed, ref } from 'vue'
 
 const profileStore = useProfileStore()
+const authStore = useAuthStore()
 const { profile } = storeToRefs(profileStore)
 
 const sidebarStore = useSidebarStore()
@@ -180,7 +182,7 @@ const onDragEnd = () => {
                 <div class="relative">
                     <div class="flex justify-between items-center mb-4">
                         <h2 class="text-xl font-semibold">个人经历</h2>
-                        <button @click="openTimelineEditor"
+                        <button v-if="authStore.isAuthenticated" @click="openTimelineEditor"
                             class="px-4 py-2 bg-github-blue text-white rounded-md hover:bg-blue-700 flex items-center gap-2">
                             <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />

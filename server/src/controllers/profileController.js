@@ -1,4 +1,5 @@
 const Profile = require("../models/Profile");
+const { sanitizeProfileData, sanitizeTimelineData } = require("../utils/sanitize");
 
 // @desc    获取用户配置文件
 // @route   GET /api/profile
@@ -34,7 +35,9 @@ exports.getProfile = async (req, res, next) => {
 exports.updateProfile = async (req, res, next) => {
     try {
         const userId = "default";
-        const updates = req.body;
+        
+        // 验证和清理输入数据
+        const updates = sanitizeProfileData(req.body);
 
         let profile = await Profile.findOne({ user_id: userId });
 
@@ -79,14 +82,17 @@ exports.updateTimeline = async (req, res, next) => {
                 message: "时间轴数据格式不正确",
             });
         }
+        
+        // 验证和清理时间轴数据
+        const sanitizedTimeline = sanitizeTimelineData(timeline);
 
         let profile = await Profile.findOne({ user_id: userId });
 
         if (!profile) {
-            profile = new Profile({ user_id: userId, timeline });
+            profile = new Profile({ user_id: userId, timeline: sanitizedTimeline });
             await profile.save();
         } else {
-            profile.timeline = timeline;
+            profile.timeline = sanitizedTimeline;
             await profile.save();
         }
 

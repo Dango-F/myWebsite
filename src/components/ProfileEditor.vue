@@ -1,6 +1,7 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { useProfileStore } from '@/stores/profile'
+import { validateProfileData } from '@/utils/validators'
 
 const profileStore = useProfileStore()
 const emit = defineEmits(['close', 'saved'])
@@ -87,6 +88,18 @@ const onDragEnd = () => {
 const saveProfile = async () => {
     isSaving.value = true
     saveMessage.value = { show: false, text: '', isError: false }
+    
+    // 前端验证
+    const validation = validateProfileData(formData.value)
+    if (!validation.valid) {
+        saveMessage.value = {
+            show: true,
+            text: validation.errors.join('；'),
+            isError: true
+        }
+        isSaving.value = false
+        return
+    }
     
     try {
         await profileStore.updateProfile(formData.value)

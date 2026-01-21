@@ -79,10 +79,10 @@ const refreshData = async () => {
       isError: false,
     };
 
-    // 3秒后自动隐藏消息
+    // 1秒后自动隐藏消息
     setTimeout(() => {
       refreshMessage.value.show = false;
-    }, 3000);
+    }, 1000);
   } catch (error) {
     refreshMessage.value = {
       show: true,

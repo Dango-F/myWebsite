@@ -2,8 +2,10 @@
 import { ref, computed, onMounted, onBeforeUnmount, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useProfileStore } from '@/stores/profile'
+import { useAuthStore } from '@/stores/auth'
 
 const profileStore = useProfileStore()
+const authStore = useAuthStore()
 const { profile } = storeToRefs(profileStore)
 
 const emojiList = [
@@ -89,8 +91,11 @@ const cancelEdit = () => {
 
 // 开始编辑
 const startEdit = (event) => {
+    // 只有认证用户才能编辑
+    if (!authStore.isAuthenticated) return
+    
     // 阻止事件冒泡，避免触发外部点击事件
-    event.stopPropagation()
+    if (event) event.stopPropagation()
     isEditing.value = true
 }
 
@@ -113,7 +118,8 @@ watch(
 <template>
     <div class="user-status bg-[var(--color-bg-primary)] rounded-md overflow-visible relative">
         <!-- 查看模式 - 始终显示 -->
-        <div class="flex items-center cursor-pointer hover:bg-[var(--color-bg-secondary)] transition-colors rounded-md px-2 py-1"
+        <div class="flex items-center rounded-md px-2 py-1"
+            :class="authStore.isAuthenticated ? 'cursor-pointer hover:bg-[var(--color-bg-secondary)] transition-colors' : ''"
             @click="startEdit">
             <div class="flex items-center gap-1">
                 <span class="text-base" aria-hidden="true">{{ profile.status?.emoji }}</span>

@@ -74,7 +74,7 @@ onUnmounted(() => {
 
   /* 亮色模式 */
   --color-bg-primary: #ffffff;
-  --color-bg-secondary: #f6f8fa;
+  --color-bg-secondary: #d0d0d0;
   --color-bg-tertiary: #f1f2f4;
   --color-text-primary: #24292e;
   --color-text-secondary: #586069;

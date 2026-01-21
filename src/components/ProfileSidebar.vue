@@ -2,11 +2,13 @@
 import { useProfileStore } from "@/stores/profile";
 import { useSidebarStore } from "@/stores/sidebar";
 import { useEditModeStore } from "@/stores/editMode";
+import { useAuthStore } from "@/stores/auth";
 import { computed, ref } from "vue";
 import { storeToRefs } from "pinia";
 import ProfileEditor from "./ProfileEditor.vue";
 
 const profileStore = useProfileStore();
+const authStore = useAuthStore();
 const { profile } = storeToRefs(profileStore);
 
 const sidebarStore = useSidebarStore();
@@ -111,6 +113,7 @@ const onDragEnd = () => {
               class="w-32 h-32 rounded-full border border-[var(--color-border)]"
             />
             <button
+              v-if="authStore.isAuthenticated"
               @click="openProfileEditor"
               class="absolute bottom-0 right-0 p-2 bg-github-blue text-white rounded-full hover:bg-blue-700 shadow-md transition-all"
               title="编辑个人信息"
@@ -250,13 +253,13 @@ const onDragEnd = () => {
             <span
               v-for="(skill, index) in profile.skills"
               :key="skill"
-              class="px-2 py-1 text-xs rounded-full bg-blue-100 text-github-blue dark:bg-blue-900 dark:text-blue-300 hover:bg-blue-200 dark:hover:bg-blue-800 transition-colors cursor-pointer select-none"
-              :class="dragIndex === index ? 'opacity-60' : ''"
-              draggable="true"
-              @dragstart="onDragStart($event, index)"
+              class="px-2 py-1 text-xs rounded-full bg-blue-100 text-github-blue dark:bg-blue-900 dark:text-blue-300 transition-colors select-none"
+              :class="[dragIndex === index ? 'opacity-60' : '', authStore.isAuthenticated ? 'hover:bg-blue-200 dark:hover:bg-blue-800 cursor-move' : '']"
+              :draggable="authStore.isAuthenticated"
+              @dragstart="authStore.isAuthenticated ? onDragStart($event, index) : null"
               @dragover.prevent
-              @drop="onDrop(index)"
-              @dragend="onDragEnd"
+              @drop="authStore.isAuthenticated ? onDrop(index) : null"
+              @dragend="authStore.isAuthenticated ? onDragEnd() : null"
             >
               {{ skill }}
             </span>

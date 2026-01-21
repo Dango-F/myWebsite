@@ -1,10 +1,12 @@
 <script setup>
 import { useProfileStore } from "@/stores/profile";
+import { useAuthStore } from "@/stores/auth";
 import { ref } from "vue";
 import { storeToRefs } from "pinia";
 import ProfileEditor from "./ProfileEditor.vue";
 
 const profileStore = useProfileStore();
+const authStore = useAuthStore();
 const { profile } = storeToRefs(profileStore);
 
 const showProfileEditor = ref(false);
@@ -72,6 +74,7 @@ const onDragEnd = () => {
           class="w-32 h-32 rounded-full border border-[var(--color-border)]"
         />
         <button
+          v-if="authStore.isAuthenticated"
           @click="openProfileEditor"
           class="absolute bottom-0 right-0 p-2 bg-github-blue text-white rounded-full hover:bg-blue-700 shadow-md transition-all"
           title="编辑个人信息"

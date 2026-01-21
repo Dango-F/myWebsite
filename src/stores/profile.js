@@ -52,6 +52,7 @@ export const useProfileStore = defineStore('profile', () => {
 
     const isLoading = ref(false)
     const error = ref(null)
+    const lastFetchTime = ref(0)
 
     // 从服务器获取配置文件
     const fetchProfile = async () => {
@@ -76,6 +77,7 @@ export const useProfileStore = defineStore('profile', () => {
                 github_username: data.github_username
             }
             timeline.value = data.timeline || []
+            lastFetchTime.value = Date.now()
         } catch (err) {
             error.value = '获取配置文件失败'
             console.error(err)
@@ -183,15 +185,24 @@ export const useProfileStore = defineStore('profile', () => {
         }
     }
 
+    // 检查是否需要刷新（5秒内不重复请求）
+    const shouldRefresh = () => {
+        const now = Date.now()
+        const refreshInterval = 5000 // 5秒
+        return now - lastFetchTime.value > refreshInterval
+    }
+
     return { 
         profile, 
         timeline, 
         isLoading, 
         error,
+        lastFetchTime,
         fetchProfile,
         updateProfile,
         updateTimeline,
         updateSkills,
-        resetProfile
+        resetProfile,
+        shouldRefresh
     }
 }) 

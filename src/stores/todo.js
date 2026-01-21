@@ -6,6 +6,7 @@ export const useTodoStore = defineStore('todo', () => {
     const todos = ref([]);
     const isLoading = ref(false);
     const error = ref(null);
+    const lastFetchTime = ref(0);
 
     // 添加默认分类列表
     const defaultCategories = ['工作', '学习', '生活', '娱乐', '其他']
@@ -25,6 +26,7 @@ export const useTodoStore = defineStore('todo', () => {
         try {
             const fetchedTodos = await todoService.getAllTodos();
             todos.value = fetchedTodos;
+            lastFetchTime.value = Date.now();
         } catch (err) {
             error.value = '获取待办事项失败';
             console.error(err);
@@ -179,16 +181,25 @@ export const useTodoStore = defineStore('todo', () => {
         fetchTodos();
     });
 
+    // 检查是否需要刷新（5秒内不重复请求）
+    const shouldRefresh = () => {
+        const now = Date.now()
+        const refreshInterval = 5000 // 5秒
+        return now - lastFetchTime.value > refreshInterval
+    }
+
     return {
         todos,
         isLoading,
         error,
         categories,
         priorities,
+        lastFetchTime,
         fetchTodos,
         addTodo,
         toggleTodo,
         removeTodo,
-        updateTodo
+        updateTodo,
+        shouldRefresh
     }
 }) 

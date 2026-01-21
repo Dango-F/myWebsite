@@ -1,8 +1,10 @@
 <script setup>
 import { ref, computed } from "vue";
 import { useTodoStore } from "@/stores/todo";
+import { useAuthStore } from "@/stores/auth";
 
 const todoStore = useTodoStore();
+const authStore = useAuthStore();
 const newTodo = ref("");
 const newCategory = ref("");
 const newPriority = ref("");
@@ -75,7 +77,7 @@ const refreshTodos = async () => {
         class="no-hover-effect text-github-blue hover:text-blue-700"
         :class="{ 'animate-spin': isRefreshing }"
       >
-        <svg
+        <!-- <svg
           xmlns="http://www.w3.org/2000/svg"
           class="h-5 w-5"
           fill="none"
@@ -88,7 +90,7 @@ const refreshTodos = async () => {
             stroke-width="2"
             d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
           />
-        </svg>
+        </svg> -->
       </button>
     </div>
 
@@ -101,7 +103,7 @@ const refreshTodos = async () => {
     </div>
 
     <!-- 添加新待办 -->
-    <div class="mb-6 border-b border-[var(--color-border)] pb-4">
+    <div v-if="authStore.isAuthenticated" class="mb-6 border-b border-[var(--color-border)] pb-4">
       <div class="flex flex-col gap-2">
         <input
           v-model="newTodo"
@@ -241,6 +243,7 @@ const refreshTodos = async () => {
           </span>
         </div>
         <button
+          v-if="authStore.isAuthenticated"
           @click="todoStore.removeTodo(todo._id || todo.id)"
           class="no-hover-effect text-red-500 hover:text-red-700"
         >
