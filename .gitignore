@@ -28,6 +28,7 @@ build
 
 # 环境文件
 .env
+.env.*
 
 # docs文件
 docs/
