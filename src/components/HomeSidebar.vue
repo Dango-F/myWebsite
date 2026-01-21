@@ -1,7 +1,7 @@
 <script setup>
 import { useProfileStore } from "@/stores/profile";
 import { useAuthStore } from "@/stores/auth";
-import { ref } from "vue";
+import { ref, watch } from "vue";
 import { storeToRefs } from "pinia";
 import ProfileEditor from "./ProfileEditor.vue";
 
@@ -11,6 +11,16 @@ const { profile } = storeToRefs(profileStore);
 
 const showProfileEditor = ref(false);
 const dragIndex = ref(null);
+
+// 登出/Token 过期时，强制关闭首页的编辑弹窗
+watch(
+  () => authStore.isAuthenticated,
+  (isAuthed) => {
+    if (!isAuthed) {
+      showProfileEditor.value = false;
+    }
+  }
+);
 
 const openProfileEditor = () => {
   showProfileEditor.value = true;

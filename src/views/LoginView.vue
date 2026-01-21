@@ -63,7 +63,7 @@ const handleLogin = async () => {
                   type="password" 
                   v-model="password"
                   class="w-full pl-10 pr-4 py-3 bg-gray-50 dark:bg-gray-900/50 border border-gray-200 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 transition-all outline-none text-gray-800 dark:text-gray-200"
-                  placeholder="••••••••"
+                  placeholder="请输入密码"
                   required
                 />
                 <LockClosedIcon class="w-5 h-5 text-gray-400 absolute left-3 top-3.5" />

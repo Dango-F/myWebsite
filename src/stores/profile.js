@@ -4,7 +4,7 @@ import profileService from '@/services/profileService'
 
 export const useProfileStore = defineStore('profile', () => {
     const profile = ref({
-        name: 'YukiDango',
+        name: 'Yulong.Fan',
         avatar: 'https://avatars.githubusercontent.com/u/109727326?s=400&u=3a05d82d993d049bd7c03c5bdac0408eea8184f3&v=4',
         bio: '空间智能 | 具身智能',
         location: '北京-怀柔',

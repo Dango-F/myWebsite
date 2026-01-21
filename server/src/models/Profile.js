@@ -30,7 +30,7 @@ const ProfileSchema = new mongoose.Schema(
         name: {
             type: String,
             required: true,
-            default: "YukiDango",
+            default: "Yulong.Fan",
         },
         avatar: {
             type: String,

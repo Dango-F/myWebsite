@@ -2,51 +2,58 @@
 import { RouterView, useRouter } from "vue-router";
 import TheHeader from "@/components/TheHeader.vue";
 import NightSky from "@/components/NightSky.vue";
+import TokenExpiredModal from "@/components/TokenExpiredModal.vue";
 import { onMounted, onUnmounted, watch } from "vue";
 import { useProfileStore } from "@/stores/profile";
+import { useAuthStore } from "@/stores/auth";
 
 const router = useRouter();
 const profileStore = useProfileStore();
+const authStore = useAuthStore();
 
-// 设置自动刷新间隔（5分钟）
-const REFRESH_INTERVAL = 5 * 60 * 1000;
-let autoRefreshTimer = null;
-
-// 自动刷新函数（博客功能已移除，定时器逻辑保留为空）
-const startAutoRefresh = () => {
-  // 清除可能存在的定时器
-  if (autoRefreshTimer) {
-    clearInterval(autoRefreshTimer);
-    autoRefreshTimer = null;
+// 页面可见性变化处理（防止休眠导致定时器延迟）
+const handleVisibilityChange = () => {
+  if (document.visibilityState === 'visible' && authStore.token) {
+    console.log('页面激活，检查 token 状态');
+    authStore.checkTokenExpiration();
   }
 };
 
-// 监听路由变化（博客功能已移除，不再启动博客刷新定时器）
+// 监听登录状态变化，调度精准过期定时器
 watch(
-  () => router.currentRoute.value.path,
-  (newPath) => {
-    if (autoRefreshTimer) {
-      console.log("离开博客页面，停止自动刷新");
-      clearInterval(autoRefreshTimer);
-      autoRefreshTimer = null;
+  () => authStore.token,
+  (newToken) => {
+    if (newToken) {
+      console.log("用户已登录，调度精准过期定时器");
+      // 如果是从 localStorage 恢复的 token，需要调度定时器
+      authStore.scheduleTokenExpiry();
+    } else {
+      console.log("用户已登出");
     }
   },
   { immediate: true }
 );
 
-// 组件挂载时启动自动刷新并加载Profile
+// 组件挂载时加载Profile
 onMounted(async () => {
-  startAutoRefresh();
   // 从后端加载用户配置
   await profileStore.fetchProfile();
+  
+  // 添加页面可见性监听（防止休眠导致定时器延迟）
+  document.addEventListener('visibilitychange', handleVisibilityChange);
+  
+  // 如果用户已登录，立即检查一次 token 是否过期
+  if (authStore.token) {
+    authStore.checkTokenExpiration();
+  }
 });
 
-// 组件卸载时清除定时器
+// 组件卸载时清除监听
 onUnmounted(() => {
-  if (autoRefreshTimer) {
-    clearInterval(autoRefreshTimer);
-    autoRefreshTimer = null;
-  }
+  // 移除页面可见性监听
+  document.removeEventListener('visibilitychange', handleVisibilityChange);
+  // 清除过期定时器
+  authStore.clearTokenExpiryTimer();
 });
 </script>
 
@@ -59,6 +66,9 @@ onUnmounted(() => {
       <TheHeader />
       <RouterView />
     </div>
+    
+    <!-- Token 过期提示弹窗 -->
+    <TokenExpiredModal v-if="authStore.showTokenExpiredModal" />
   </div>
 </template>
 

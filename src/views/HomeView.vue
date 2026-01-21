@@ -4,7 +4,7 @@ import { useProfileStore } from "@/stores/profile";
 import { storeToRefs } from "pinia";
 import HomeSidebar from "@/components/HomeSidebar.vue";
 import RepoCard from "@/components/RepoCard.vue";
-import { onMounted, computed, ref, onActivated } from "vue";
+import { onMounted, computed, ref } from "vue";
 import { useSidebarStore } from "@/stores/sidebar";
 import axios from "axios";
 
@@ -111,13 +111,6 @@ onMounted(async () => {
   }
 });
 
-// 页面激活时进行智能刷新
-onActivated(async () => {
-  // 智能加载项目数据
-  if (projectStore.shouldRefresh()) {
-    await loadProjects();
-  }
-});
 </script>
 
 <template>

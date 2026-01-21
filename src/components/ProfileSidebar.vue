@@ -3,7 +3,7 @@ import { useProfileStore } from "@/stores/profile";
 import { useSidebarStore } from "@/stores/sidebar";
 import { useEditModeStore } from "@/stores/editMode";
 import { useAuthStore } from "@/stores/auth";
-import { computed, ref } from "vue";
+import { computed, ref, watch } from "vue";
 import { storeToRefs } from "pinia";
 import ProfileEditor from "./ProfileEditor.vue";
 
@@ -17,6 +17,16 @@ const isCollapsed = computed(() => sidebarStore.isCollapsed);
 
 const showProfileEditor = ref(false);
 const dragIndex = ref(null);
+
+// 登出/Token 过期时，强制关闭编辑弹窗（防止同路由刷新/特殊场景残留）
+watch(
+  () => authStore.isAuthenticated,
+  (isAuthed) => {
+    if (!isAuthed) {
+      showProfileEditor.value = false;
+    }
+  }
+);
 
 const toggleSidebar = () => {
   sidebarStore.toggleSidebar();
